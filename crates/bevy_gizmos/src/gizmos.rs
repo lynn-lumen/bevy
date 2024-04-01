@@ -24,6 +24,8 @@ pub(crate) struct GizmoStorage<T: GizmoConfigGroup> {
     pub(crate) list_colors: Vec<LinearRgba>,
     pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
+    pub(crate) billboard_positions: Vec<Vec3>,
+    pub(crate) billboard_colors: Vec<LinearRgba>,
     marker: PhantomData<T>,
 }
 
@@ -104,6 +106,8 @@ struct GizmoBuffer<T: GizmoConfigGroup> {
     list_colors: Vec<LinearRgba>,
     strip_positions: Vec<Vec3>,
     strip_colors: Vec<LinearRgba>,
+    billboard_positions: Vec<Vec3>,
+    billboard_colors: Vec<LinearRgba>,
     marker: PhantomData<T>,
 }
 
@@ -114,10 +118,19 @@ impl<T: GizmoConfigGroup> SystemBuffer for GizmoBuffer<T> {
         storage.list_colors.append(&mut self.list_colors);
         storage.strip_positions.append(&mut self.strip_positions);
         storage.strip_colors.append(&mut self.strip_colors);
+        storage.billboard_positions.append(&mut self.billboard_positions);
+        storage.billboard_colors.append(&mut self.billboard_colors);
     }
 }
 
 impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+    pub fn billboard(&mut self, position: Vec3, color: impl Into<Color>) {
+        let polymorphic_color = color.into();
+        let linear_rgba = LinearRgba::from(polymorphic_color);
+
+        self.buffer.billboard_positions.push(position);
+        self.buffer.billboard_colors.push(linear_rgba);
+    }
     /// Draw a line in 3D from `start` to `end`.
     ///
     /// This should be called for each frame the line needs to be rendered.

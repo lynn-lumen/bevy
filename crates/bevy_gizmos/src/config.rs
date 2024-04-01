@@ -4,6 +4,7 @@ use crate as bevy_gizmos;
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
 use bevy_ecs::{component::Component, reflect::ReflectResource, system::Resource};
+use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::view::RenderLayers;
 use bevy_utils::TypeIdMap;
@@ -134,6 +135,12 @@ pub struct GizmoConfig {
     ///
     /// Defaults to `true`.
     pub enabled: bool,
+    /// Size of billboards specified in pixels.
+    ///
+    /// If `line_perspective` is `true` then this is the size in pixels at the camera's near plane.
+    ///
+    /// Defaults to `Vec2::new(25.0, 25.0)`.
+    pub billboard_size: Vec2,
     /// Line width specified in pixels.
     ///
     /// If `line_perspective` is `true` then this is the size in pixels at the camera's near plane.
@@ -174,6 +181,7 @@ impl Default for GizmoConfig {
     fn default() -> Self {
         Self {
             enabled: true,
+            billboard_size: Vec2::new(25., 25.),
             line_width: 2.,
             line_perspective: false,
             line_style: GizmoLineStyle::Solid,

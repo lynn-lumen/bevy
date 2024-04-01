@@ -1,4 +1,4 @@
-use crate::config::{GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint, GizmoMeshConfig};
+use crate::config::{GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig};
 use crate::gizmos::GizmoStorage;
 use bevy_app::{App, Last, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
@@ -12,7 +12,7 @@ use bevy_ecs::{
         Commands, Res, ResMut, Resource, SystemParamItem,
     },
 };
-use bevy_math::Vec3;
+use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -37,8 +37,7 @@ mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
-const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
+const BILLBOARD_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026510);
 
 pub struct BillboardGizmoPlugin;
 impl Plugin for BillboardGizmoPlugin {
@@ -49,12 +48,12 @@ impl Plugin for BillboardGizmoPlugin {
             "bevy_gizmos requires either bevy_pbr or bevy_sprite. Please enable one."
         );
 
-        load_internal_asset!(app, LINE_SHADER_HANDLE, "billboards.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, BILLBOARD_SHADER_HANDLE, "billboards.wgsl", Shader::from_wgsl);
 
         app.add_plugins(UniformComponentPlugin::<BillboardGizmoUniform>::default())
-            .init_asset::<LineGizmo>()
-            .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
-            .init_resource::<LineGizmoHandles>();
+            .init_asset::<BillboardGizmo>()
+            .add_plugins(RenderAssetPlugin::<BillboardGizmo>::default())
+            .init_resource::<BillboardGizmoHandles>();
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -80,14 +79,14 @@ impl Plugin for BillboardGizmoPlugin {
 
         let render_device = render_app.world.resource::<RenderDevice>();
         let billboard_layout = render_device.create_bind_group_layout(
-            "LineGizmoUniform layout",
+            "BillboardGizmoUniform layout",
             &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX,
                 uniform_buffer::<BillboardGizmoUniform>(true),
             ),
         );
 
-        render_app.insert_resource(LineGizmoUniformBindgroupLayout {
+        render_app.insert_resource(BillboardGizmoUniformBindgroupLayout {
             layout: billboard_layout,
         });
     }
@@ -96,9 +95,8 @@ impl Plugin for BillboardGizmoPlugin {
 pub(crate) fn init_billboard_gizmo_group<T: GizmoConfigGroup + Default>(app: &mut App) {
     let mut handles = app
         .world
-        .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
-    handles.list.insert(TypeId::of::<T>(), None);
-    handles.strip.insert(TypeId::of::<T>(), None);
+        .get_resource_or_insert_with::<BillboardGizmoHandles>(Default::default);
+    handles.billboard.insert(TypeId::of::<T>(), None);
 
     app.init_resource::<GizmoStorage<T>>()
         .add_systems(Last, update_gizmo_meshes::<T>);
@@ -110,45 +108,41 @@ pub(crate) fn init_billboard_gizmo_group<T: GizmoConfigGroup + Default>(app: &mu
 // That way iteration order is stable across executions and depends on the order of configuration
 // group creation.
 #[derive(Resource, Default)]
-struct LineGizmoHandles {
-    list: TypeIdMap<Option<Handle<LineGizmo>>>,
-    strip: TypeIdMap<Option<Handle<LineGizmo>>>,
+struct BillboardGizmoHandles {
+    billboard: TypeIdMap<Option<Handle<BillboardGizmo>>>,
 }
 
 fn update_gizmo_meshes<T: GizmoConfigGroup>(
-    mut billboard_gizmos: ResMut<Assets<LineGizmo>>,
-    mut handles: ResMut<LineGizmoHandles>,
+    mut billboard_gizmos: ResMut<Assets<BillboardGizmo>>,
+    mut handles: ResMut<BillboardGizmoHandles>,
     mut storage: ResMut<GizmoStorage<T>>,
     config_store: Res<GizmoConfigStore>,
 ) {
-    if storage.list_positions.is_empty() {
-        handles.list.insert(TypeId::of::<T>(), None);
-    } else if let Some(handle) = handles.list.get_mut(&TypeId::of::<T>()) {
+    if storage.billboard_positions.is_empty() {
+        handles.billboard.insert(TypeId::of::<T>(), None);
+    } else if let Some(handle) = handles.billboard.get_mut(&TypeId::of::<T>()) {
         if let Some(handle) = handle {
-            let list = billboard_gizmos.get_mut(handle.id()).unwrap();
+            let billboard = billboard_gizmos.get_mut(handle.id()).unwrap();
 
-            list.positions = mem::take(&mut storage.list_positions);
-            list.colors = mem::take(&mut storage.list_colors);
+            billboard.positions = mem::take(&mut storage.billboard_positions);
+            billboard.colors = mem::take(&mut storage.billboard_colors);
         } else {
-            let mut list = LineGizmo {
-                strip: false,
-                ..Default::default()
-            };
+            let mut billboard = BillboardGizmo::default();
 
-            list.positions = mem::take(&mut storage.list_positions);
-            list.colors = mem::take(&mut storage.list_colors);
+            billboard.positions = mem::take(&mut storage.billboard_positions);
+            billboard.colors = mem::take(&mut storage.billboard_colors);
 
-            *handle = Some(billboard_gizmos.add(list));
+            *handle = Some(billboard_gizmos.add(billboard));
         }
     }
 }
 
 fn extract_gizmo_data(
     mut commands: Commands,
-    handles: Extract<Res<LineGizmoHandles>>,
+    handles: Extract<Res<BillboardGizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
-    for (group_type_id, handle) in handles.list.iter().chain(handles.strip.iter()) {
+    for (group_type_id, handle) in handles.billboard.iter() {
         let Some((config, _)) = config.get_config_dyn(group_type_id) else {
             continue;
         };
@@ -161,17 +155,10 @@ fn extract_gizmo_data(
             continue;
         };
 
-        let joints_resolution = if let GizmoLineJoint::Round(resolution) = config.line_joints {
-            resolution
-        } else {
-            0
-        };
-
         commands.spawn((
             BillboardGizmoUniform {
                 line_width: config.line_width,
                 depth_bias: config.depth_bias,
-                joints_resolution,
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
@@ -185,21 +172,15 @@ fn extract_gizmo_data(
 struct BillboardGizmoUniform {
     line_width: f32,
     depth_bias: f32,
-    // Only used by gizmo line t if the current configs `line_joints` is set to `GizmoLineJoint::Round(_)`
-    joints_resolution: u32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(feature = "webgl")]
-    _padding: f32,
+    _padding: Vec2,
 }
 
 #[derive(Asset, Debug, Default, Clone, TypePath)]
-struct LineGizmo {
+struct BillboardGizmo {
     positions: Vec<Vec3>,
     colors: Vec<LinearRgba>,
-    /// Whether this gizmo's topology is a line-strip or line-list
-    strip: bool,
-    /// Whether this gizmo should draw line joints. This is only applicable if the gizmo's topology is line-strip.
-    joints: GizmoLineJoint,
 }
 
 #[derive(Debug, Clone)]
@@ -207,11 +188,9 @@ struct GpuLineGizmo {
     position_buffer: Buffer,
     color_buffer: Buffer,
     vertex_count: u32,
-    strip: bool,
-    joints: GizmoLineJoint,
 }
 
-impl RenderAsset for LineGizmo {
+impl RenderAsset for BillboardGizmo {
     type PreparedAsset = GpuLineGizmo;
     type Param = SRes<RenderDevice>;
 
@@ -241,14 +220,12 @@ impl RenderAsset for LineGizmo {
             position_buffer,
             color_buffer,
             vertex_count: self.positions.len() as u32,
-            strip: self.strip,
-            joints: self.joints,
         })
     }
 }
 
 #[derive(Resource)]
-struct LineGizmoUniformBindgroupLayout {
+struct BillboardGizmoUniformBindgroupLayout {
     layout: BindGroupLayout,
 }
 
@@ -259,7 +236,7 @@ struct LineGizmoUniformBindgroup {
 
 fn prepare_billboard_gizmo_bind_group(
     mut commands: Commands,
-    line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
+    line_gizmo_uniform_layout: Res<BillboardGizmoUniformBindgroupLayout>,
     render_device: Res<RenderDevice>,
     line_gizmo_uniforms: Res<ComponentUniforms<BillboardGizmoUniform>>,
 ) {
@@ -302,9 +279,9 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 
 struct DrawLineGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
-    type Param = SRes<RenderAssets<LineGizmo>>;
+    type Param = SRes<RenderAssets<BillboardGizmo>>;
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<LineGizmo>>;
+    type ItemQuery = Read<Handle<BillboardGizmo>>;
 
     #[inline]
     fn render<'w>(
@@ -325,15 +302,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
             return RenderCommandResult::Success;
         }
 
-        let instances = if line_gizmo.strip {
-            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(..));
-
-            pass.set_vertex_buffer(2, line_gizmo.color_buffer.slice(..));
-            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(..));
-
-            u32::max(line_gizmo.vertex_count, 1) - 1
-        } else {
+        let instances = {
             pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
             pass.set_vertex_buffer(1, line_gizmo.color_buffer.slice(..));
 
@@ -346,59 +315,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     }
 }
 
-struct DrawLineJointGizmo;
-impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
-    type Param = SRes<RenderAssets<LineGizmo>>;
-    type ViewQuery = ();
-    type ItemQuery = Read<Handle<LineGizmo>>;
-
-    #[inline]
-    fn render<'w>(
-        _item: &P,
-        _view: ROQueryItem<'w, Self::ViewQuery>,
-        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
-        line_gizmos: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        let Some(handle) = handle else {
-            return RenderCommandResult::Failure;
-        };
-        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
-            return RenderCommandResult::Failure;
-        };
-
-        if line_gizmo.vertex_count <= 2 || !line_gizmo.strip {
-            return RenderCommandResult::Success;
-        };
-
-        if line_gizmo.joints == GizmoLineJoint::None {
-            return RenderCommandResult::Success;
-        };
-
-        let instances = {
-            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(2, line_gizmo.position_buffer.slice(..));
-
-            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(..));
-
-            u32::max(line_gizmo.vertex_count, 2) - 2
-        };
-
-        let vertices = match line_gizmo.joints {
-            GizmoLineJoint::None => unreachable!(),
-            GizmoLineJoint::Miter => 6,
-            GizmoLineJoint::Round(resolution) => resolution * 3,
-            GizmoLineJoint::Bevel => 3,
-        };
-
-        pass.draw(0..vertices, 0..instances);
-
-        RenderCommandResult::Success
-    }
-}
-
-fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
+fn line_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {
         array_stride: Float32x3.size(),
@@ -420,74 +337,19 @@ fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
         }],
     };
 
-    if strip {
-        vec![
-            position_layout.clone(),
-            {
-                position_layout.attributes[0].shader_location = 1;
-                position_layout.attributes[0].offset = Float32x3.size();
-                position_layout
-            },
-            color_layout.clone(),
-            {
-                color_layout.attributes[0].shader_location = 3;
-                color_layout.attributes[0].offset = Float32x4.size();
-                color_layout
-            },
-        ]
-    } else {
-        position_layout.array_stride *= 2;
-        position_layout.attributes.push(VertexAttribute {
-            format: Float32x3,
-            offset: Float32x3.size(),
-            shader_location: 1,
-        });
+    position_layout.array_stride *= 2;
+    position_layout.attributes.push(VertexAttribute {
+        format: Float32x3,
+        offset: Float32x3.size(),
+        shader_location: 1,
+    });
 
-        color_layout.array_stride *= 2;
-        color_layout.attributes.push(VertexAttribute {
-            format: Float32x4,
-            offset: Float32x4.size(),
-            shader_location: 3,
-        });
+    color_layout.array_stride *= 2;
+    color_layout.attributes.push(VertexAttribute {
+        format: Float32x4,
+        offset: Float32x4.size(),
+        shader_location: 3,
+    });
 
-        vec![position_layout, color_layout]
-    }
-}
-
-fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
-    use VertexFormat::*;
-    let mut position_layout = VertexBufferLayout {
-        array_stride: Float32x3.size(),
-        step_mode: VertexStepMode::Instance,
-        attributes: vec![VertexAttribute {
-            format: Float32x3,
-            offset: 0,
-            shader_location: 0,
-        }],
-    };
-
-    let color_layout = VertexBufferLayout {
-        array_stride: Float32x4.size(),
-        step_mode: VertexStepMode::Instance,
-        attributes: vec![VertexAttribute {
-            format: Float32x4,
-            offset: Float32x4.size(),
-            shader_location: 3,
-        }],
-    };
-
-    vec![
-        position_layout.clone(),
-        {
-            position_layout.attributes[0].shader_location = 1;
-            position_layout.attributes[0].offset = Float32x3.size();
-            position_layout.clone()
-        },
-        {
-            position_layout.attributes[0].shader_location = 2;
-            position_layout.attributes[0].offset = 2 * Float32x3.size();
-            position_layout
-        },
-        color_layout.clone(),
-    ]
+    vec![position_layout, color_layout]
 }

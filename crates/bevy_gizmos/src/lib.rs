@@ -42,6 +42,7 @@ pub mod light;
 pub mod primitives;
 
 mod lines;
+mod billboards;
 
 /// The `bevy_gizmos` prelude.
 pub mod prelude {
@@ -62,10 +63,13 @@ pub mod prelude {
 use aabb::AabbGizmoPlugin;
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::SystemSet;
+use billboards::init_billboard_gizmo_group;
 use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore};
 use gizmos::GizmoStorage;
 use light::LightGizmoPlugin;
 use lines::{init_line_gizmo_group, LineGizmoPlugin};
+
+use crate::billboards::BillboardGizmoPlugin;
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 pub struct GizmoPlugin;
@@ -84,6 +88,7 @@ impl Plugin for GizmoPlugin {
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
             .add_plugins(AabbGizmoPlugin)
             .add_plugins(LightGizmoPlugin)
+            .add_plugins(BillboardGizmoPlugin)
             .add_plugins(LineGizmoPlugin);
     }
 }
@@ -112,6 +117,7 @@ impl AppGizmoBuilder for App {
         }
 
         init_line_gizmo_group::<T>(self);
+        init_billboard_gizmo_group::<T>(self);
 
         self.world
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
@@ -134,6 +140,7 @@ impl AppGizmoBuilder for App {
         }
 
         init_line_gizmo_group::<T>(self);
+        init_billboard_gizmo_group::<T>(self);
 
         self
     }

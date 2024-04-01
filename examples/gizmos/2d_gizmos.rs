@@ -43,6 +43,11 @@ fn draw_example_collection(
     gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), RED);
     gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), LIME);
 
+    gizmos.billboard(Vec3::new(-80., -80., 0.), LAWN_GREEN);
+    gizmos.billboard(Vec3::new(80., -80., 0.), PURPLE);
+    gizmos.billboard(Vec3::new(-80., 80., 0.), RED);
+    gizmos.billboard(Vec3::new(80., 80., 0.), YELLOW);
+
     gizmos
         .grid_2d(
             Vec2::ZERO,
