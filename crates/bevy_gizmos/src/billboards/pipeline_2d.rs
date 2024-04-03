@@ -1,10 +1,10 @@
 use crate::{
-    config::GizmoMeshConfig,
     billboards::{
-        line_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-        BillboardGizmo, BillboardGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
+        billboard_gizmo_vertex_buffer_layouts, BillboardGizmo,
+        BillboardGizmoUniformBindgroupLayout, DrawLineGizmo, SetLineGizmoBindGroup,
         BILLBOARD_SHADER_HANDLE,
     },
+    config::GizmoMeshConfig,
     GizmoRenderSystem,
 };
 use bevy_app::{App, Plugin};
@@ -45,7 +45,7 @@ impl Plugin for LineGizmo2dPlugin {
             )
             .add_systems(
                 Render,
-                queue_line_gizmos_2d
+                queue_billboard_gizmos_2d
                     .in_set(GizmoRenderSystem::QueueLineGizmos2d)
                     .after(prepare_assets::<BillboardGizmo>),
             );
@@ -108,7 +108,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 shader: BILLBOARD_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: line_gizmo_vertex_buffer_layouts(),
+                buffers: billboard_gizmo_vertex_buffer_layouts(),
             },
             fragment: Some(FragmentState {
                 shader: BILLBOARD_SHADER_HANDLE,
@@ -142,14 +142,14 @@ type DrawLineGizmo2d = (
 );
 
 #[allow(clippy::too_many_arguments)]
-fn queue_line_gizmos_2d(
+fn queue_billboard_gizmos_2d(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     pipeline: Res<LineGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    line_gizmos: Query<(Entity, &Handle<BillboardGizmo>, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<BillboardGizmo>>,
+    billboard_gizmos: Query<(Entity, &Handle<BillboardGizmo>, &GizmoMeshConfig)>,
+    billboard_gizmo_assets: Res<RenderAssets<BillboardGizmo>>,
     mut views: Query<(
         &ExtractedView,
         &mut RenderPhase<Transparent2d>,
@@ -162,22 +162,20 @@ fn queue_line_gizmos_2d(
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
-        for (entity, handle, config) in &line_gizmos {
+        for (entity, handle, config) in &billboard_gizmos {
             let render_layers = render_layers.copied().unwrap_or_default();
             if !config.render_layers.intersects(&render_layers) {
                 continue;
             }
 
-            let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
+            let Some(billboard_gizmo) = billboard_gizmo_assets.get(handle) else {
                 continue;
             };
 
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                LineGizmoPipelineKey {
-                    mesh_key,
-                },
+                LineGizmoPipelineKey { mesh_key },
             );
 
             transparent_phase.add(Transparent2d {

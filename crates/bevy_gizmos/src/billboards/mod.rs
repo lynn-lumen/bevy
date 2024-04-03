@@ -48,7 +48,12 @@ impl Plugin for BillboardGizmoPlugin {
             "bevy_gizmos requires either bevy_pbr or bevy_sprite. Please enable one."
         );
 
-        load_internal_asset!(app, BILLBOARD_SHADER_HANDLE, "billboards.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            BILLBOARD_SHADER_HANDLE,
+            "billboards.wgsl",
+            Shader::from_wgsl
+        );
 
         app.add_plugins(UniformComponentPlugin::<BillboardGizmoUniform>::default())
             .init_asset::<BillboardGizmo>()
@@ -157,7 +162,7 @@ fn extract_gizmo_data(
 
         commands.spawn((
             BillboardGizmoUniform {
-                line_width: config.line_width,
+                billboard_size: config.billboard_size,
                 depth_bias: config.depth_bias,
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
@@ -170,11 +175,11 @@ fn extract_gizmo_data(
 
 #[derive(Component, ShaderType, Clone, Copy)]
 struct BillboardGizmoUniform {
-    line_width: f32,
+    billboard_size: Vec2,
     depth_bias: f32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(feature = "webgl")]
-    _padding: Vec2,
+    _padding: f32,
 }
 
 #[derive(Asset, Debug, Default, Clone, TypePath)]
@@ -236,15 +241,15 @@ struct LineGizmoUniformBindgroup {
 
 fn prepare_billboard_gizmo_bind_group(
     mut commands: Commands,
-    line_gizmo_uniform_layout: Res<BillboardGizmoUniformBindgroupLayout>,
+    billboard_gizmo_uniform_layout: Res<BillboardGizmoUniformBindgroupLayout>,
     render_device: Res<RenderDevice>,
-    line_gizmo_uniforms: Res<ComponentUniforms<BillboardGizmoUniform>>,
+    billboard_gizmo_uniforms: Res<ComponentUniforms<BillboardGizmoUniform>>,
 ) {
-    if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
+    if let Some(binding) = billboard_gizmo_uniforms.uniforms().binding() {
         commands.insert_resource(LineGizmoUniformBindgroup {
             bindgroup: render_device.create_bind_group(
                 "LineGizmoUniform bindgroup",
-                &line_gizmo_uniform_layout.layout,
+                &billboard_gizmo_uniform_layout.layout,
                 &BindGroupEntries::single(binding),
             ),
         });
@@ -288,25 +293,25 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
         handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
-        line_gizmos: SystemParamItem<'w, '_, Self::Param>,
+        billboard_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(handle) = handle else {
             return RenderCommandResult::Failure;
         };
-        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
+        let Some(billboard_gizmo) = billboard_gizmos.into_inner().get(handle) else {
             return RenderCommandResult::Failure;
         };
 
-        if line_gizmo.vertex_count < 2 {
+        if billboard_gizmo.vertex_count < 2 {
             return RenderCommandResult::Success;
         }
 
         let instances = {
-            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(1, line_gizmo.color_buffer.slice(..));
+            pass.set_vertex_buffer(0, billboard_gizmo.position_buffer.slice(..));
+            pass.set_vertex_buffer(1, billboard_gizmo.color_buffer.slice(..));
 
-            line_gizmo.vertex_count / 2
+            billboard_gizmo.vertex_count / 2
         };
 
         pass.draw(0..6, 0..instances);
@@ -315,7 +320,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     }
 }
 
-fn line_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
+fn billboard_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {
         array_stride: Float32x3.size(),

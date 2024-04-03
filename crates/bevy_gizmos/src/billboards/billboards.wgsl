@@ -5,11 +5,11 @@
 
 
 struct LineGizmoUniform {
-    line_width: f32,
+    billboard_size: vec2<f32>,
     depth_bias: f32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
-    _padding: vec2<f32>,
+    _padding: f32,
 #endif
 }
 
@@ -26,7 +26,6 @@ struct VertexInput {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
-    @location(1) uv: f32,
 };
 
 const EPSILON: f32 = 4.88e-04;
@@ -51,21 +50,21 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
 
     var color = vertex.color_a;
 
-    var line_width = line_gizmo.line_width;
+    var billboard_size = line_gizmo.billboard_size;
     var alpha = 1.;
 
-    var uv: f32;
 #ifdef PERSPECTIVE
-    line_width /= clip.w;
+    billboard_size /= clip.w;
 #endif
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
-    if line_width > 0.0 && line_width < 1. {
-        color.a *= line_width;
-        line_width = 1.;
+    let abs_size = length(billboard_size);
+    if abs_size < 1. {
+        color.a *= abs_size;
+        billboard_size = vec2(1., 1.);
     }
 
-    let screen = screen_center + position * line_width  ;
+    let screen = screen_center + position * billboard_size;
 
     var depth: f32;
     if line_gizmo.depth_bias >= 0. {
@@ -83,13 +82,12 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
 
     var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
 
-    return VertexOutput(clip_position, color, uv);
+    return VertexOutput(clip_position, color);
 }
 
 struct FragmentInput {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
-    @location(1) uv: f32,
 };
 
 struct FragmentOutput {

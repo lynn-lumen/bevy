@@ -141,6 +141,12 @@ pub struct GizmoConfig {
     ///
     /// Defaults to `Vec2::new(25.0, 25.0)`.
     pub billboard_size: Vec2,
+    /// Apply perspective to gizmo billboards.
+    ///
+    /// This setting only affects 3D, non-orthographic cameras.
+    ///
+    /// Defaults to `false`.
+    pub billboard_perspective: bool,
     /// Line width specified in pixels.
     ///
     /// If `line_perspective` is `true` then this is the size in pixels at the camera's near plane.
@@ -182,6 +188,7 @@ impl Default for GizmoConfig {
         Self {
             enabled: true,
             billboard_size: Vec2::new(25., 25.),
+            billboard_perspective: false,
             line_width: 2.,
             line_perspective: false,
             line_style: GizmoLineStyle::Solid,
@@ -196,6 +203,7 @@ impl Default for GizmoConfig {
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,
+    pub billboard_perspective: bool,
     pub line_style: GizmoLineStyle,
     pub render_layers: RenderLayers,
 }
@@ -204,6 +212,7 @@ impl From<&GizmoConfig> for GizmoMeshConfig {
     fn from(item: &GizmoConfig) -> Self {
         GizmoMeshConfig {
             line_perspective: item.line_perspective,
+            billboard_perspective: item.billboard_perspective,
             line_style: item.line_style,
             render_layers: item.render_layers,
         }
