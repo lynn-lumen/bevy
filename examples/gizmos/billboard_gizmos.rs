@@ -14,7 +14,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     // text
     commands.spawn(TextBundle::from_section(
-        "Hold 'Left' or 'Right' to change the width of gizmos\n\
+        "Hold 'Left' or 'Right' to change the width of gizm os\n\
         Hold 'Up' or 'Down' to change the height of gizmos\n\
         Press 'Space' to toggle the visibility of gizmos\n\
 		Press 'P' to toggle perspective for line gizmos",
@@ -27,18 +27,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn draw_example_collection(mut gizmos: Gizmos) {
-    gizmos.billboard(
-        Vec3::new(-80., -80., 0.),
-        AssetId::<Image>::invalid(),
-        LAWN_GREEN,
-    );
-    gizmos.billboard(
-        Vec3::new(80., -80., 0.),
-        AssetId::<Image>::invalid(),
-        PURPLE,
-    );
-    gizmos.billboard(Vec3::new(-80., 80., 0.), AssetId::<Image>::invalid(), RED);
-    gizmos.billboard(Vec3::new(80., 80., 0.), AssetId::<Image>::invalid(), YELLOW);
+    gizmos.billboard(Vec3::new(-80., -80., 0.), AssetId::<Image>::invalid());
+    gizmos.billboard(Vec3::new(80., -80., 0.), AssetId::<Image>::invalid());
+    gizmos.billboard_tinted(Vec3::new(-80., 80., 0.), AssetId::<Image>::invalid(), RED);
+    gizmos.billboard_tinted(Vec3::new(80., 80., 0.), AssetId::<Image>::invalid(), YELLOW);
 }
 
 fn update_config(

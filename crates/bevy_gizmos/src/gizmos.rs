@@ -131,7 +131,27 @@ impl<T: GizmoConfigGroup> SystemBuffer for GizmoBuffer<T> {
 }
 
 impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
-    /// Draws a billboard at the specified `position` using the specified `color` as a tint.
+    /// Draws an `image` billboard at the specified `position`.
+    ///
+    /// This should be called for each frame the billboard needs to be rendered.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos, asset_server: Res<AssetServer>) {
+    ///     let img = asset_server.load("branding/icon.png");
+    ///     gizmos.billboard_tinted(Vec3::ZERO, img);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn billboard(&mut self, position: Vec3, image: impl Into<AssetId<Image>>) {
+        self.buffer.billboard_positions.push(position);
+        self.buffer.billboard_colors.push(LinearRgba::WHITE);
+        self.buffer.billboard_images.push(image.into());
+    }
+    /// Draws an `image` billboard at the specified `position` using the specified `color` as a tint.
     ///
     /// This should be called for each frame the billboard needs to be rendered.
     ///
@@ -143,11 +163,11 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos, asset_server: Res<AssetServer>) {
     ///     let img = asset_server.load("branding/icon.png");
-    ///     gizmos.billboard(Vec3::ZERO, img, GREEN);
+    ///     gizmos.billboard_tinted(Vec3::ZERO, img, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn billboard(
+    pub fn billboard_tinted(
         &mut self,
         position: Vec3,
         image: impl Into<AssetId<Image>>,
