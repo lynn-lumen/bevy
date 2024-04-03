@@ -139,7 +139,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("LineGizmo Pipeline 2D".into()),
+            label: Some("line_gizmo_pipeline_2D".into()),
             push_constant_ranges: vec![],
         }
     }
@@ -224,7 +224,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("LineJointGizmo Pipeline 2D".into()),
+            label: Some("line_joint_gizmo_pipeline_2D".into()),
             push_constant_ranges: vec![],
         }
     }

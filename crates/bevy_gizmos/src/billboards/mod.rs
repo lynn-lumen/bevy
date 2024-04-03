@@ -121,7 +121,6 @@ fn update_gizmo_meshes<T: GizmoConfigGroup>(
     mut billboard_gizmos: ResMut<Assets<BillboardGizmo>>,
     mut handles: ResMut<BillboardGizmoHandles>,
     mut storage: ResMut<GizmoStorage<T>>,
-    config_store: Res<GizmoConfigStore>,
 ) {
     if storage.billboard_positions.is_empty() {
         handles.billboard.insert(TypeId::of::<T>(), None);
@@ -210,14 +209,14 @@ impl RenderAsset for BillboardGizmo {
         let position_buffer_data = cast_slice(&self.positions);
         let position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
-            label: Some("BillboardGizmo Position Buffer"),
+            label: Some("billboard_gizmo_position_buffer"),
             contents: position_buffer_data,
         });
 
         let color_buffer_data = cast_slice(&self.colors);
         let color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
-            label: Some("BillboardGizmo Color Buffer"),
+            label: Some("billboard_gizmo_color_buffer"),
             contents: color_buffer_data,
         });
 

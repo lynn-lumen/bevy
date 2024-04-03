@@ -90,7 +90,7 @@ impl Plugin for LineGizmoPlugin {
 
         let render_device = render_app.world.resource::<RenderDevice>();
         let line_layout = render_device.create_bind_group_layout(
-            "LineGizmoUniform layout",
+            "line_gizmo_uniform_layout",
             &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX,
                 uniform_buffer::<LineGizmoUniform>(true),
@@ -260,14 +260,14 @@ impl RenderAsset for LineGizmo {
         let position_buffer_data = cast_slice(&self.positions);
         let position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
-            label: Some("LineGizmo Position Buffer"),
+            label: Some("line_gizmo_position_buffer"),
             contents: position_buffer_data,
         });
 
         let color_buffer_data = cast_slice(&self.colors);
         let color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
-            label: Some("LineGizmo Color Buffer"),
+            label: Some("line_gizmo_color_buffer"),
             contents: color_buffer_data,
         });
 
@@ -300,7 +300,7 @@ fn prepare_line_gizmo_bind_group(
     if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
         commands.insert_resource(LineGizmoUniformBindgroup {
             bindgroup: render_device.create_bind_group(
-                "LineGizmoUniform bindgroup",
+                "line_gizmo_uniform_bindgroup",
                 &line_gizmo_uniform_layout.layout,
                 &BindGroupEntries::single(binding),
             ),

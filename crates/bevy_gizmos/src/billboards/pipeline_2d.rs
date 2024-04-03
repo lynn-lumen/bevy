@@ -8,7 +8,6 @@ use crate::{
     GizmoRenderSystem,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::Handle;
 use bevy_core_pipeline::core_2d::Transparent2d;
 
 use bevy_ecs::{
@@ -18,7 +17,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    render_asset::{prepare_assets, RenderAssets},
+    render_asset::prepare_assets,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
@@ -128,7 +127,7 @@ impl SpecializedRenderPipeline for BillboardGizmoPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("BillboardGizmo Pipeline 2D".into()),
+            label: Some("billboard_gizmo_pipeline_2D".into()),
             push_constant_ranges: vec![],
         }
     }
@@ -148,8 +147,7 @@ fn queue_billboard_gizmos_2d(
     mut pipelines: ResMut<SpecializedRenderPipelines<BillboardGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    billboard_gizmos: Query<(Entity, &Handle<BillboardGizmo>, &GizmoMeshConfig)>,
-    billboard_gizmo_assets: Res<RenderAssets<BillboardGizmo>>,
+    billboard_gizmos: Query<(Entity, &GizmoMeshConfig)>,
     mut views: Query<(
         &ExtractedView,
         &mut RenderPhase<Transparent2d>,
@@ -165,15 +163,11 @@ fn queue_billboard_gizmos_2d(
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
-        for (entity, handle, config) in &billboard_gizmos {
+        for (entity, config) in &billboard_gizmos {
             let render_layers = render_layers.copied().unwrap_or_default();
             if !config.render_layers.intersects(&render_layers) {
                 continue;
             }
-
-            let Some(billboard_gizmo) = billboard_gizmo_assets.get(handle) else {
-                continue;
-            };
 
             let pipeline = pipelines.specialize(
                 &pipeline_cache,

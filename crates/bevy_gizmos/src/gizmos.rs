@@ -118,12 +118,29 @@ impl<T: GizmoConfigGroup> SystemBuffer for GizmoBuffer<T> {
         storage.list_colors.append(&mut self.list_colors);
         storage.strip_positions.append(&mut self.strip_positions);
         storage.strip_colors.append(&mut self.strip_colors);
-        storage.billboard_positions.append(&mut self.billboard_positions);
+        storage
+            .billboard_positions
+            .append(&mut self.billboard_positions);
         storage.billboard_colors.append(&mut self.billboard_colors);
     }
 }
 
 impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+    /// Draws a billboard at the specified `position` using the specified `color` as a tint.
+    ///
+    /// This should be called for each frame the billboard needs to be rendered.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.billboard(Vec3::ZERO, GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     pub fn billboard(&mut self, position: Vec3, color: impl Into<Color>) {
         let polymorphic_color = color.into();
         let linear_rgba = LinearRgba::from(polymorphic_color);
