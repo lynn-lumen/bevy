@@ -34,32 +34,22 @@ const EPSILON: f32 = 4.88e-04;
 @vertex
 fn vertex(vertex: VertexInput) -> VertexOutput {
     var positions = array<vec2<f32>, 6>(
-        vec2(-0.5, 0.),
-        vec2(-0.5, 1.),
-        vec2(0.5, 1.),
-        vec2(-0.5, 0.),
-        vec2(0.5, 1.),
-        vec2(0.5, 0.)
+        vec2(-0.5, -0.5),
+        vec2(-0.5, 0.5),
+        vec2(0.5, 0.5),
+        vec2(-0.5, -0.5),
+        vec2(0.5, 0.5),
+        vec2(0.5, -0.5)
     );
     let position = positions[vertex.index];
 
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
-    var clip_a = view.view_proj * vec4(vertex.position_a, 1.);
-    var clip_b = view.view_proj * vec4(vertex.position_b, 1.);
-
-    // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
-    clip_a = clip_near_plane(clip_a, clip_b);
-    clip_b = clip_near_plane(clip_b, clip_a);
-    let clip = mix(clip_a, clip_b, position.y);
+    let clip = view.view_proj * vec4(vertex.position_a, 1.);
 
     let resolution = view.viewport.zw;
-    let screen_a = resolution * (0.5 * clip_a.xy / clip_a.w + 0.5);
-    let screen_b = resolution * (0.5 * clip_b.xy / clip_b.w + 0.5);
+    let screen_center = resolution * (0.5 * clip.xy / clip.w + 0.5);
 
-    let y_basis = normalize(screen_b - screen_a);
-    let x_basis = vec2(-y_basis.y, y_basis.x);
-
-    var color = mix(vertex.color_a, vertex.color_b, position.y);
+    var color = vertex.color_a;
 
     var line_width = line_gizmo.line_width;
     var alpha = 1.;
@@ -67,35 +57,6 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     var uv: f32;
 #ifdef PERSPECTIVE
     line_width /= clip.w;
-
-    // get height of near clipping plane in world space
-    let pos0 = view.inverse_projection * vec4(0, -1, 0, 1); // Bottom of the screen
-    let pos1 = view.inverse_projection * vec4(0, 1, 0, 1); // Top of the screen
-    let near_clipping_plane_height = length(pos0.xyz - pos1.xyz);
-
-    // We can't use vertex.position_X because we may have changed the clip positions with clip_near_plane
-    let position_a = view.inverse_view_proj * clip_a;
-    let position_b = view.inverse_view_proj * clip_b;
-    let world_distance = length(position_a.xyz - position_b.xyz);
-
-    // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is ofscreen.
-    let clipped_offset = length(position_a.xyz - vertex.position_a);
-
-    uv = (clipped_offset + position.y * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
-#else
-    // Get the distance of b to the camera along camera axes
-    let camera_b = view.inverse_projection * clip_b;
-
-    // This differentiates between orthographic and perspective cameras.
-    // For orthographic cameras no depth adaptment (depth_adaptment = 1) is needed.
-    var depth_adaptment: f32;
-    if (clip_b.w == 1.0) {
-        depth_adaptment = 1.0;
-    }
-    else {
-        depth_adaptment = -camera_b.z;
-    }
-    uv = position.y * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
 #endif
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
@@ -104,8 +65,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
         line_width = 1.;
     }
 
-    let x_offset = line_width * position.x * x_basis;
-    let screen = mix(screen_a, screen_b, position.y) + x_offset;
+    let screen = screen_center + position * line_width  ;
 
     var depth: f32;
     if line_gizmo.depth_bias >= 0. {
@@ -124,20 +84,6 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
 
     return VertexOutput(clip_position, color, uv);
-}
-
-fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
-    // Move a if a is behind the near plane and b is in front. 
-    if a.z > a.w && b.z <= b.w {
-        // Interpolate a towards b until it's at the near plane.
-        let distance_a = a.z - a.w;
-        let distance_b = b.z - b.w;
-        // Add an epsilon to the interpolator to ensure that the point is
-        // not just behind the clip plane due to floating-point imprecision.
-        let t = distance_a / (distance_a - distance_b) + EPSILON;
-        return mix(a, b, t);
-    }
-    return a;
 }
 
 struct FragmentInput {
