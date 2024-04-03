@@ -3,6 +3,7 @@
 use std::{iter, marker::PhantomData};
 
 use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
+use bevy_asset::AssetId;
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
@@ -10,6 +11,7 @@ use bevy_ecs::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Dir3, Quat, Rotation2d, Vec2, Vec3};
+use bevy_render::texture::Image;
 use bevy_transform::TransformPoint;
 
 use crate::{
@@ -26,6 +28,7 @@ pub(crate) struct GizmoStorage<T: GizmoConfigGroup> {
     pub(crate) strip_colors: Vec<LinearRgba>,
     pub(crate) billboard_positions: Vec<Vec3>,
     pub(crate) billboard_colors: Vec<LinearRgba>,
+    pub(crate) billboard_images: Vec<AssetId<Image>>,
     marker: PhantomData<T>,
 }
 
@@ -108,6 +111,7 @@ struct GizmoBuffer<T: GizmoConfigGroup> {
     strip_colors: Vec<LinearRgba>,
     billboard_positions: Vec<Vec3>,
     billboard_colors: Vec<LinearRgba>,
+    billboard_images: Vec<AssetId<Image>>,
     marker: PhantomData<T>,
 }
 
@@ -122,6 +126,7 @@ impl<T: GizmoConfigGroup> SystemBuffer for GizmoBuffer<T> {
             .billboard_positions
             .append(&mut self.billboard_positions);
         storage.billboard_colors.append(&mut self.billboard_colors);
+        storage.billboard_images.append(&mut self.billboard_images);
     }
 }
 
@@ -136,17 +141,24 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
-    /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.billboard(Vec3::ZERO, GREEN);
+    /// fn system(mut gizmos: Gizmos, asset_server: Res<AssetServer>) {
+    ///     let img = asset_server.load("branding/icon.png");
+    ///     gizmos.billboard(Vec3::ZERO, img, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn billboard(&mut self, position: Vec3, color: impl Into<Color>) {
+    pub fn billboard(
+        &mut self,
+        position: Vec3,
+        image: impl Into<AssetId<Image>>,
+        color: impl Into<Color>,
+    ) {
         let polymorphic_color = color.into();
         let linear_rgba = LinearRgba::from(polymorphic_color);
 
         self.buffer.billboard_positions.push(position);
         self.buffer.billboard_colors.push(linear_rgba);
+        self.buffer.billboard_images.push(image.into());
     }
     /// Draw a line in 3D from `start` to `end`.
     ///

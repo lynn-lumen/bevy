@@ -2783,6 +2783,17 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "billboard_gizmos"
+path = "examples/gizmos/billboard_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.billboard_gizmos]
+name = "Billboard Gizmos"
+description = "A scene showcasing billboard gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
 name = "3d_gizmos"
 path = "examples/gizmos/3d_gizmos.rs"
 doc-scrape-examples = true
