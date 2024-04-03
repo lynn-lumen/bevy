@@ -1,7 +1,7 @@
 use crate::{
     billboards::{
         billboard_gizmo_vertex_buffer_layouts, BillboardGizmo,
-        BillboardGizmoUniformBindgroupLayout, DrawLineGizmo, SetLineGizmoBindGroup,
+        BillboardGizmoUniformBindgroupLayout, DrawBillboardGizmo, SetBillboardGizmoBindGroup,
         BILLBOARD_SHADER_HANDLE,
     },
     config::GizmoMeshConfig,
@@ -31,24 +31,24 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 
-pub struct LineGizmo3dPlugin;
-impl Plugin for LineGizmo3dPlugin {
+pub struct BillboardGizmo3dPlugin;
+impl Plugin for BillboardGizmo3dPlugin {
     fn build(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
-            .add_render_command::<Transparent3d, DrawLineGizmo3d>()
-            .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
+            .add_render_command::<Transparent3d, DrawBillboardGizmo3d>()
+            .init_resource::<SpecializedRenderPipelines<BillboardGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos3d.in_set(RenderSet::Queue),
+                GizmoRenderSystem::QueueGizmos3d.in_set(RenderSet::Queue),
             )
             .add_systems(
                 Render,
                 queue_billboard_gizmos_3d
-                    .in_set(GizmoRenderSystem::QueueLineGizmos3d)
+                    .in_set(GizmoRenderSystem::QueueGizmos3d)
                     .after(prepare_assets::<BillboardGizmo>),
             );
     }
@@ -58,19 +58,19 @@ impl Plugin for LineGizmo3dPlugin {
             return;
         };
 
-        render_app.init_resource::<LineGizmoPipeline>();
+        render_app.init_resource::<BillboardGizmoPipeline>();
     }
 }
 
 #[derive(Clone, Resource)]
-struct LineGizmoPipeline {
+struct BillboardGizmoPipeline {
     mesh_pipeline: MeshPipeline,
     uniform_layout: BindGroupLayout,
 }
 
-impl FromWorld for LineGizmoPipeline {
+impl FromWorld for BillboardGizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        LineGizmoPipeline {
+        BillboardGizmoPipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
             uniform_layout: render_world
                 .resource::<BillboardGizmoUniformBindgroupLayout>()
@@ -81,13 +81,13 @@ impl FromWorld for LineGizmoPipeline {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-struct LineGizmoPipelineKey {
+struct BillboardGizmoPipelineKey {
     view_key: MeshPipelineKey,
     perspective: bool,
 }
 
-impl SpecializedRenderPipeline for LineGizmoPipeline {
-    type Key = LineGizmoPipelineKey;
+impl SpecializedRenderPipeline for BillboardGizmoPipeline {
+    type Key = BillboardGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![
@@ -149,18 +149,18 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
     }
 }
 
-type DrawLineGizmo3d = (
+type DrawBillboardGizmo3d = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetLineGizmoBindGroup<1>,
-    DrawLineGizmo,
+    SetBillboardGizmoBindGroup<1>,
+    DrawBillboardGizmo,
 );
 
 #[allow(clippy::too_many_arguments)]
 fn queue_billboard_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
-    pipeline: Res<LineGizmoPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
+    pipeline: Res<BillboardGizmoPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<BillboardGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     billboard_gizmos: Query<(Entity, &Handle<BillboardGizmo>, &GizmoMeshConfig)>,
@@ -177,7 +177,10 @@ fn queue_billboard_gizmos_3d(
         ),
     )>,
 ) {
-    let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
+    let draw_function = draw_functions
+        .read()
+        .get_id::<DrawBillboardGizmo3d>()
+        .unwrap();
 
     for (
         view,
@@ -219,7 +222,7 @@ fn queue_billboard_gizmos_3d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                LineGizmoPipelineKey {
+                BillboardGizmoPipelineKey {
                     view_key,
                     perspective: config.billboard_perspective,
                 },

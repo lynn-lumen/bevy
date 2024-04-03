@@ -44,12 +44,12 @@ impl Plugin for LineGizmo2dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos2d.in_set(RenderSet::Queue),
+                GizmoRenderSystem::QueueGizmos2d.in_set(RenderSet::Queue),
             )
             .add_systems(
                 Render,
                 (queue_line_gizmos_2d, queue_line_joint_gizmos_2d)
-                    .in_set(GizmoRenderSystem::QueueLineGizmos2d)
+                    .in_set(GizmoRenderSystem::QueueGizmos2d)
                     .after(prepare_assets::<LineGizmo>),
             );
     }

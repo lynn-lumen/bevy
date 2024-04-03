@@ -86,6 +86,8 @@ fn draw_example_collection(
     mut my_gizmos: Gizmos<MyRoundGizmos>,
     time: Res<Time>,
 ) {
+    gizmos.billboard(Vec3::new(10., 2., 10.), RED);
+
     gizmos.grid(
         Vec3::ZERO,
         Quat::from_rotation_x(PI / 2.),
@@ -153,6 +155,7 @@ fn update_config(
         for (_, config, _) in config_store.iter_mut() {
             // Toggle line_perspective
             config.line_perspective ^= true;
+            config.billboard_perspective ^= true;
             // Increase the line width when line_perspective is on
             config.line_width *= if config.line_perspective { 5. } else { 1. / 5. };
         }

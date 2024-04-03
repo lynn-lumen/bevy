@@ -1,7 +1,7 @@
 use crate::{
     billboards::{
         billboard_gizmo_vertex_buffer_layouts, BillboardGizmo,
-        BillboardGizmoUniformBindgroupLayout, DrawLineGizmo, SetLineGizmoBindGroup,
+        BillboardGizmoUniformBindgroupLayout, DrawBillboardGizmo, SetBillboardGizmoBindGroup,
         BILLBOARD_SHADER_HANDLE,
     },
     config::GizmoMeshConfig,
@@ -28,25 +28,25 @@ use bevy_render::{
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use bevy_utils::FloatOrd;
 
-pub struct LineGizmo2dPlugin;
+pub struct BillboardGizmo2dPlugin;
 
-impl Plugin for LineGizmo2dPlugin {
+impl Plugin for BillboardGizmo2dPlugin {
     fn build(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
-            .add_render_command::<Transparent2d, DrawLineGizmo2d>()
-            .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
+            .add_render_command::<Transparent2d, DrawBillboardGizmo2d>()
+            .init_resource::<SpecializedRenderPipelines<BillboardGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos2d.in_set(RenderSet::Queue),
+                GizmoRenderSystem::QueueGizmos2d.in_set(RenderSet::Queue),
             )
             .add_systems(
                 Render,
                 queue_billboard_gizmos_2d
-                    .in_set(GizmoRenderSystem::QueueLineGizmos2d)
+                    .in_set(GizmoRenderSystem::QueueGizmos2d)
                     .after(prepare_assets::<BillboardGizmo>),
             );
     }
@@ -56,19 +56,19 @@ impl Plugin for LineGizmo2dPlugin {
             return;
         };
 
-        render_app.init_resource::<LineGizmoPipeline>();
+        render_app.init_resource::<BillboardGizmoPipeline>();
     }
 }
 
 #[derive(Clone, Resource)]
-struct LineGizmoPipeline {
+struct BillboardGizmoPipeline {
     mesh_pipeline: Mesh2dPipeline,
     uniform_layout: BindGroupLayout,
 }
 
-impl FromWorld for LineGizmoPipeline {
+impl FromWorld for BillboardGizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        LineGizmoPipeline {
+        BillboardGizmoPipeline {
             mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
             uniform_layout: render_world
                 .resource::<BillboardGizmoUniformBindgroupLayout>()
@@ -79,12 +79,12 @@ impl FromWorld for LineGizmoPipeline {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-struct LineGizmoPipelineKey {
+struct BillboardGizmoPipelineKey {
     mesh_key: Mesh2dPipelineKey,
 }
 
-impl SpecializedRenderPipeline for LineGizmoPipeline {
-    type Key = LineGizmoPipelineKey;
+impl SpecializedRenderPipeline for BillboardGizmoPipeline {
+    type Key = BillboardGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
@@ -134,18 +134,18 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
     }
 }
 
-type DrawLineGizmo2d = (
+type DrawBillboardGizmo2d = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
-    SetLineGizmoBindGroup<1>,
-    DrawLineGizmo,
+    SetBillboardGizmoBindGroup<1>,
+    DrawBillboardGizmo,
 );
 
 #[allow(clippy::too_many_arguments)]
 fn queue_billboard_gizmos_2d(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
-    pipeline: Res<LineGizmoPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
+    pipeline: Res<BillboardGizmoPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<BillboardGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     billboard_gizmos: Query<(Entity, &Handle<BillboardGizmo>, &GizmoMeshConfig)>,
@@ -156,7 +156,10 @@ fn queue_billboard_gizmos_2d(
         Option<&RenderLayers>,
     )>,
 ) {
-    let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
+    let draw_function = draw_functions
+        .read()
+        .get_id::<DrawBillboardGizmo2d>()
+        .unwrap();
 
     for (view, mut transparent_phase, render_layers) in &mut views {
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
@@ -175,7 +178,7 @@ fn queue_billboard_gizmos_2d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                LineGizmoPipelineKey { mesh_key },
+                BillboardGizmoPipelineKey { mesh_key },
             );
 
             transparent_phase.add(Transparent2d {

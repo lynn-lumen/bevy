@@ -167,12 +167,12 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
             {
                 render_app.ignore_ambiguity(
                     bevy_render::Render,
-                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos2d,
+                    bevy_gizmos::GizmoRenderSystem::QueueGizmos2d,
                     bevy_sprite::queue_sprites,
                 );
                 render_app.ignore_ambiguity(
                     bevy_render::Render,
-                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos2d,
+                    bevy_gizmos::GizmoRenderSystem::QueueGizmos2d,
                     bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
                 );
             }
@@ -180,7 +180,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
             {
                 render_app.ignore_ambiguity(
                     bevy_render::Render,
-                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos3d,
+                    bevy_gizmos::GizmoRenderSystem::QueueGizmos3d,
                     bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>,
                 );
             }

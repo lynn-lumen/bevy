@@ -25,10 +25,10 @@
 pub enum GizmoRenderSystem {
     /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
     #[cfg(feature = "bevy_sprite")]
-    QueueLineGizmos2d,
+    QueueGizmos2d,
     /// Adds gizmos to the [`Transparent3d`](bevy_core_pipeline::core_3d::Transparent3d) render phase
     #[cfg(feature = "bevy_pbr")]
-    QueueLineGizmos3d,
+    QueueGizmos3d,
 }
 
 pub mod aabb;
@@ -41,8 +41,8 @@ pub mod grid;
 pub mod light;
 pub mod primitives;
 
-mod lines;
 mod billboards;
+mod lines;
 
 /// The `bevy_gizmos` prelude.
 pub mod prelude {

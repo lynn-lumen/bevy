@@ -72,9 +72,9 @@ impl Plugin for BillboardGizmoPlugin {
         render_app.add_systems(ExtractSchedule, extract_gizmo_data);
 
         #[cfg(feature = "bevy_sprite")]
-        app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
+        app.add_plugins(pipeline_2d::BillboardGizmo2dPlugin);
         #[cfg(feature = "bevy_pbr")]
-        app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+        app.add_plugins(pipeline_3d::BillboardGizmo3dPlugin);
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
@@ -189,14 +189,14 @@ struct BillboardGizmo {
 }
 
 #[derive(Debug, Clone)]
-struct GpuLineGizmo {
+struct GpuBillboardGizmo {
     position_buffer: Buffer,
     color_buffer: Buffer,
     vertex_count: u32,
 }
 
 impl RenderAsset for BillboardGizmo {
-    type PreparedAsset = GpuLineGizmo;
+    type PreparedAsset = GpuBillboardGizmo;
     type Param = SRes<RenderDevice>;
 
     fn asset_usage(&self) -> RenderAssetUsages {
@@ -210,18 +210,18 @@ impl RenderAsset for BillboardGizmo {
         let position_buffer_data = cast_slice(&self.positions);
         let position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
-            label: Some("LineGizmo Position Buffer"),
+            label: Some("BillboardGizmo Position Buffer"),
             contents: position_buffer_data,
         });
 
         let color_buffer_data = cast_slice(&self.colors);
         let color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
-            label: Some("LineGizmo Color Buffer"),
+            label: Some("BillboardGizmo Color Buffer"),
             contents: color_buffer_data,
         });
 
-        Ok(GpuLineGizmo {
+        Ok(GpuBillboardGizmo {
             position_buffer,
             color_buffer,
             vertex_count: self.positions.len() as u32,
@@ -235,7 +235,7 @@ struct BillboardGizmoUniformBindgroupLayout {
 }
 
 #[derive(Resource)]
-struct LineGizmoUniformBindgroup {
+struct BillboardGizmoUniformBindgroup {
     bindgroup: BindGroup,
 }
 
@@ -246,9 +246,9 @@ fn prepare_billboard_gizmo_bind_group(
     billboard_gizmo_uniforms: Res<ComponentUniforms<BillboardGizmoUniform>>,
 ) {
     if let Some(binding) = billboard_gizmo_uniforms.uniforms().binding() {
-        commands.insert_resource(LineGizmoUniformBindgroup {
+        commands.insert_resource(BillboardGizmoUniformBindgroup {
             bindgroup: render_device.create_bind_group(
-                "LineGizmoUniform bindgroup",
+                "BillboardGizmoUniform bindgroup",
                 &billboard_gizmo_uniform_layout.layout,
                 &BindGroupEntries::single(binding),
             ),
@@ -256,9 +256,9 @@ fn prepare_billboard_gizmo_bind_group(
     }
 }
 
-struct SetLineGizmoBindGroup<const I: usize>;
-impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
-    type Param = SRes<LineGizmoUniformBindgroup>;
+struct SetBillboardGizmoBindGroup<const I: usize>;
+impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetBillboardGizmoBindGroup<I> {
+    type Param = SRes<BillboardGizmoUniformBindgroup>;
     type ViewQuery = ();
     type ItemQuery = Read<DynamicUniformIndex<BillboardGizmoUniform>>;
 
@@ -282,8 +282,8 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
     }
 }
 
-struct DrawLineGizmo;
-impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
+struct DrawBillboardGizmo;
+impl<P: PhaseItem> RenderCommand<P> for DrawBillboardGizmo {
     type Param = SRes<RenderAssets<BillboardGizmo>>;
     type ViewQuery = ();
     type ItemQuery = Read<Handle<BillboardGizmo>>;
@@ -303,7 +303,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
             return RenderCommandResult::Failure;
         };
 
-        if billboard_gizmo.vertex_count < 2 {
+        if billboard_gizmo.vertex_count == 0 {
             return RenderCommandResult::Success;
         }
 
@@ -311,7 +311,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
             pass.set_vertex_buffer(0, billboard_gizmo.position_buffer.slice(..));
             pass.set_vertex_buffer(1, billboard_gizmo.color_buffer.slice(..));
 
-            billboard_gizmo.vertex_count / 2
+            billboard_gizmo.vertex_count
         };
 
         pass.draw(0..6, 0..instances);
@@ -322,7 +322,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
 
 fn billboard_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
-    let mut position_layout = VertexBufferLayout {
+    let position_layout = VertexBufferLayout {
         array_stride: Float32x3.size(),
         step_mode: VertexStepMode::Instance,
         attributes: vec![VertexAttribute {
@@ -332,29 +332,14 @@ fn billboard_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
         }],
     };
 
-    let mut color_layout = VertexBufferLayout {
+    let color_layout = VertexBufferLayout {
         array_stride: Float32x4.size(),
         step_mode: VertexStepMode::Instance,
         attributes: vec![VertexAttribute {
             format: Float32x4,
             offset: 0,
-            shader_location: 2,
+            shader_location: 1,
         }],
     };
-
-    position_layout.array_stride *= 2;
-    position_layout.attributes.push(VertexAttribute {
-        format: Float32x3,
-        offset: Float32x3.size(),
-        shader_location: 1,
-    });
-
-    color_layout.array_stride *= 2;
-    color_layout.attributes.push(VertexAttribute {
-        format: Float32x4,
-        offset: Float32x4.size(),
-        shader_location: 3,
-    });
-
     vec![position_layout, color_layout]
 }
