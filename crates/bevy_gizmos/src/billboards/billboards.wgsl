@@ -52,7 +52,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     var alpha = 1.;
 
 #ifdef PERSPECTIVE
-    billboard_size = vec2(3., 3.); //= clip.w;
+    billboard_size /= clip.w;
 #endif
 
     // Billboard size fade based on https://acegikmo.com/shapes/docs/#anti-aliasing
