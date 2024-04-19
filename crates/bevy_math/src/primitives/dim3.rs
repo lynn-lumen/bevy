@@ -1,6 +1,6 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
-use super::{Circle, Primitive3d};
+use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
 /// A sphere primitive
@@ -11,6 +11,20 @@ pub struct Sphere {
     pub radius: f32,
 }
 impl Primitive3d for Sphere {}
+
+impl Measured3d for Sphere {
+    /// Get the surface area of the sphere
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        4.0 * PI * self.radius.powi(2)
+    }
+
+    /// Get the volume of the sphere
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        4.0 * FRAC_PI_3 * self.radius.powi(3)
+    }
+}
 
 impl Default for Sphere {
     /// Returns the default [`Sphere`] with a radius of `0.5`.
@@ -30,18 +44,6 @@ impl Sphere {
     #[inline(always)]
     pub fn diameter(&self) -> f32 {
         2.0 * self.radius
-    }
-
-    /// Get the surface area of the sphere
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        4.0 * PI * self.radius.powi(2)
-    }
-
-    /// Get the volume of the sphere
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        4.0 * FRAC_PI_3 * self.radius.powi(3)
     }
 
     /// Finds the point on the sphere that is closest to the given `point`.
@@ -313,6 +315,22 @@ pub struct Cuboid {
 }
 impl Primitive3d for Cuboid {}
 
+impl Measured3d for Cuboid {
+    /// Get the surface area of the cuboid
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        8.0 * (self.half_size.x * self.half_size.y
+            + self.half_size.y * self.half_size.z
+            + self.half_size.x * self.half_size.z)
+    }
+
+    /// Get the volume of the cuboid
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        8.0 * self.half_size.x * self.half_size.y * self.half_size.z
+    }
+}
+
 impl Default for Cuboid {
     /// Returns the default [`Cuboid`] with a width, height, and depth of `1.0`.
     fn default() -> Self {
@@ -360,20 +378,6 @@ impl Cuboid {
         2.0 * self.half_size
     }
 
-    /// Get the surface area of the cuboid
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        8.0 * (self.half_size.x * self.half_size.y
-            + self.half_size.y * self.half_size.z
-            + self.half_size.x * self.half_size.z)
-    }
-
-    /// Get the volume of the cuboid
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        8.0 * self.half_size.x * self.half_size.y * self.half_size.z
-    }
-
     /// Finds the point on the cuboid that is closest to the given `point`.
     ///
     /// If the point is outside the cuboid, the returned point will be on the surface of the cuboid.
@@ -395,6 +399,20 @@ pub struct Cylinder {
     pub half_height: f32,
 }
 impl Primitive3d for Cylinder {}
+
+impl Measured3d for Cylinder {
+    /// Get the total surface area of the cylinder
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        2.0 * PI * self.radius * (self.radius + 2.0 * self.half_height)
+    }
+
+    /// Get the volume of the cylinder
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        self.base_area() * 2.0 * self.half_height
+    }
+}
 
 impl Default for Cylinder {
     /// Returns the default [`Cylinder`] with a radius of `0.5` and a height of `1.0`.
@@ -437,18 +455,6 @@ impl Cylinder {
     pub fn base_area(&self) -> f32 {
         PI * self.radius.powi(2)
     }
-
-    /// Get the total surface area of the cylinder
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        2.0 * PI * self.radius * (self.radius + 2.0 * self.half_height)
-    }
-
-    /// Get the volume of the cylinder
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        self.base_area() * 2.0 * self.half_height
-    }
 }
 
 /// A 3D capsule primitive.
@@ -462,6 +468,23 @@ pub struct Capsule3d {
     pub half_length: f32,
 }
 impl Primitive3d for Capsule3d {}
+
+impl Measured3d for Capsule3d {
+    /// Get the surface area of the capsule
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        // Modified version of 2pi * r * (2r + h)
+        4.0 * PI * self.radius * (self.radius + self.half_length)
+    }
+
+    /// Get the volume of the capsule
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        // Modified version of pi * r^2 * (4/3 * r + a)
+        let diameter = self.radius * 2.0;
+        PI * self.radius * diameter * (diameter / 3.0 + self.half_length)
+    }
+}
 
 impl Default for Capsule3d {
     /// Returns the default [`Capsule3d`] with a radius of `0.5` and a segment length of `1.0`.
@@ -492,21 +515,6 @@ impl Capsule3d {
             half_height: self.half_length,
         }
     }
-
-    /// Get the surface area of the capsule
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        // Modified version of 2pi * r * (2r + h)
-        4.0 * PI * self.radius * (self.radius + self.half_length)
-    }
-
-    /// Get the volume of the capsule
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        // Modified version of pi * r^2 * (4/3 * r + a)
-        let diameter = self.radius * 2.0;
-        PI * self.radius * diameter * (diameter / 3.0 + self.half_length)
-    }
 }
 
 /// A cone primitive.
@@ -519,6 +527,20 @@ pub struct Cone {
     pub height: f32,
 }
 impl Primitive3d for Cone {}
+
+impl Measured3d for Cone {
+    /// Get the total surface area of the cone
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        self.base_area() + self.lateral_area()
+    }
+
+    /// Get the volume of the cone
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        (self.base_area() * self.height) / 3.0
+    }
+}
 
 impl Cone {
     /// Get the base of the cone as a [`Circle`]
@@ -549,18 +571,6 @@ impl Cone {
     #[inline(always)]
     pub fn base_area(&self) -> f32 {
         PI * self.radius.powi(2)
-    }
-
-    /// Get the total surface area of the cone
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        self.base_area() + self.lateral_area()
-    }
-
-    /// Get the volume of the cone
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        (self.base_area() * self.height) / 3.0
     }
 }
 
@@ -613,6 +623,22 @@ pub struct Torus {
     pub major_radius: f32,
 }
 impl Primitive3d for Torus {}
+
+impl Measured3d for Torus {
+    /// Get the surface area of the torus. Note that this only produces
+    /// the expected result when the torus has a ring and isn't self-intersecting
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        4.0 * PI.powi(2) * self.major_radius * self.minor_radius
+    }
+
+    /// Get the volume of the torus. Note that this only produces
+    /// the expected result when the torus has a ring and isn't self-intersecting
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        2.0 * PI.powi(2) * self.major_radius * self.minor_radius.powi(2)
+    }
+}
 
 impl Default for Torus {
     /// Returns the default [`Torus`] with a minor radius of `0.25` and a major radius of `0.75`.
@@ -680,20 +706,6 @@ impl Torus {
             std::cmp::Ordering::Equal => TorusKind::Horn,
             std::cmp::Ordering::Less => TorusKind::Spindle,
         }
-    }
-
-    /// Get the surface area of the torus. Note that this only produces
-    /// the expected result when the torus has a ring and isn't self-intersecting
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        4.0 * PI.powi(2) * self.major_radius * self.minor_radius
-    }
-
-    /// Get the volume of the torus. Note that this only produces
-    /// the expected result when the torus has a ring and isn't self-intersecting
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        2.0 * PI.powi(2) * self.major_radius * self.minor_radius.powi(2)
     }
 }
 
@@ -844,6 +856,30 @@ pub struct Tetrahedron {
 }
 impl Primitive3d for Tetrahedron {}
 
+impl Measured3d for Tetrahedron {
+    /// Get the surface area of the tetrahedron.
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        let bc = c - b;
+        let bd = d - b;
+        (ab.cross(ac).length()
+            + ab.cross(ad).length()
+            + ac.cross(ad).length()
+            + bc.cross(bd).length())
+            / 2.0
+    }
+
+    /// Get the volume of the tetrahedron.
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        self.signed_volume().abs()
+    }
+}
+
 impl Default for Tetrahedron {
     /// Returns the default [`Tetrahedron`] with the vertices
     /// `[0.5, 0.5, 0.5]`, `[-0.5, 0.5, -0.5]`, `[-0.5, -0.5, 0.5]` and `[0.5, -0.5, -0.5]`.
@@ -868,28 +904,6 @@ impl Tetrahedron {
         }
     }
 
-    /// Get the surface area of the tetrahedron.
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        let [a, b, c, d] = self.vertices;
-        let ab = b - a;
-        let ac = c - a;
-        let ad = d - a;
-        let bc = c - b;
-        let bd = d - b;
-        (ab.cross(ac).length()
-            + ab.cross(ad).length()
-            + ac.cross(ad).length()
-            + bc.cross(bd).length())
-            / 2.0
-    }
-
-    /// Get the volume of the tetrahedron.
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        self.signed_volume().abs()
-    }
-
     /// Get the signed volume of the tetrahedron.
     ///
     /// If it's negative, the normal vector of the face defined by
@@ -912,6 +926,26 @@ impl Tetrahedron {
     #[inline(always)]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0
+    }
+}
+
+/// A primitive that can represent any prism
+/// by extruding the `base_shape` by a given `depth`
+pub struct Extrusion<T: Primitive2d> {
+    /// The base of the prism or the shape to be extruded
+    pub base_shape: T,
+    /// The height of the prism or the extrusion depth
+    pub depth: f32,
+}
+impl<T: Primitive2d> Primitive3d for Extrusion<T> {}
+
+impl<T: Primitive2d + Measured2d> Measured3d for Extrusion<T> {
+    fn area(&self) -> f32 {
+        self.base_shape.area() * 2. + self.base_shape.perimeter() * self.depth
+    }
+
+    fn volume(&self) -> f32 {
+        self.base_shape.area() * self.depth
     }
 }
 

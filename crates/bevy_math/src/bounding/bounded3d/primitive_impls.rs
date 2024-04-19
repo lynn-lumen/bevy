@@ -1,10 +1,11 @@
 //! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
 
 use crate::{
-    bounding::{Bounded2d, BoundingCircle},
+    bounding::{Bounded2d, BoundingCircle, BoundingVolume},
     primitives::{
-        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d,
-        Line3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
+        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Extrusion,
+        InfinitePlane3d, Line3d, Polyline3d, Primitive2d, Segment3d, Sphere, Torus, Triangle2d,
+        Triangle3d,
     },
     Dir3, Mat3, Quat, Vec2, Vec3,
 };
@@ -353,6 +354,36 @@ impl Bounded3d for Triangle3d {
             let radius = circumcenter.distance(a);
             BoundingSphere::new(circumcenter + translation, radius)
         }
+    }
+}
+
+impl<T: Primitive2d + Bounded2d> Bounded3d for Extrusion<T> {
+    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+        let aabb = self.base_shape.aabb_2d(Vec2::ZERO, 0.);
+        let cuboid = Cuboid::new(aabb.half_size().x, aabb.half_size().y, self.depth);
+
+        let offset = rotation * aabb.center().extend(0.);
+        let cuboid_aabb = cuboid.aabb_3d(translation + offset, rotation);
+
+        let bounding_circle = self.base_shape.bounding_circle(Vec2::ZERO, 0.);
+        let cylinder = Cylinder::new(bounding_circle.radius(), self.depth);
+
+        let offset = rotation * aabb.center().extend(0.);
+        let cylinder_aabb = cylinder.aabb_3d(translation + offset, rotation);
+
+        let min = cuboid_aabb.min.max(cylinder_aabb.min);
+        let max = cuboid_aabb.max.min(cylinder_aabb.max);
+        Aabb3d { min, max }
+    }
+
+    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
+        let bounding_circle = self.base_shape.bounding_circle(Vec2::ZERO, 0.);
+        let segment_radius = bounding_circle.radius();
+
+        let offset = rotation * bounding_circle.center.extend(0.);
+        let radius = segment_radius.hypot(self.depth / 2.);
+
+        BoundingSphere::new(translation + offset, radius)
     }
 }
 

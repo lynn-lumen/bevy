@@ -24,6 +24,15 @@ pub trait Measured2d {
     fn perimeter(&self) -> f32;
 }
 
+/// A trait for measuring 3D primitives
+pub trait Measured3d {
+    /// Get the surface area of the shape
+    fn area(&self) -> f32;
+
+    /// Get the volume of the shape
+    fn volume(&self) -> f32;
+}
+
 /// The winding order for a set of points
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WindingOrder {
