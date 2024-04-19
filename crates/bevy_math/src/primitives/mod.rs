@@ -15,6 +15,15 @@ pub trait Primitive2d {}
 /// A marker trait for 3D primitives
 pub trait Primitive3d {}
 
+/// A trait for measuring 2D primitives
+pub trait Measured2d {
+    /// Get the area of the shape
+    fn area(&self) -> f32;
+
+    /// Get the perimeter of the shape
+    fn perimeter(&self) -> f32;
+}
+
 /// The winding order for a set of points
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WindingOrder {

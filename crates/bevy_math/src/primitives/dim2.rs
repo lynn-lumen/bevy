@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use super::{Primitive2d, WindingOrder};
+use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{Dir2, Vec2};
 
 /// A circle primitive
@@ -19,6 +19,21 @@ impl Default for Circle {
     }
 }
 
+impl Measured2d for Circle {
+    /// Get the area of the circle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        PI * self.radius.powi(2)
+    }
+
+    /// Get the perimeter or circumference of the circle
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    fn perimeter(&self) -> f32 {
+        2.0 * PI * self.radius
+    }
+}
+
 impl Circle {
     /// Create a new [`Circle`] from a `radius`
     #[inline(always)]
@@ -30,19 +45,6 @@ impl Circle {
     #[inline(always)]
     pub fn diameter(&self) -> f32 {
         2.0 * self.radius
-    }
-
-    /// Get the area of the circle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        PI * self.radius.powi(2)
-    }
-
-    /// Get the perimeter or circumference of the circle
-    #[inline(always)]
-    #[doc(alias = "circumference")]
-    pub fn perimeter(&self) -> f32 {
-        2.0 * PI * self.radius
     }
 
     /// Finds the point on the circle that is closest to the given `point`.
@@ -118,6 +120,12 @@ impl Ellipse {
         (a * a - b * b).sqrt() / a
     }
 
+    /// Get the area of the ellipse
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        PI * self.half_size.x * self.half_size.y
+    }
+
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
     #[inline(always)]
     pub fn semi_major(&self) -> f32 {
@@ -128,12 +136,6 @@ impl Ellipse {
     #[inline(always)]
     pub fn semi_minor(&self) -> f32 {
         self.half_size.min_element()
-    }
-
-    /// Get the area of the ellipse
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        PI * self.half_size.x * self.half_size.y
     }
 }
 
@@ -148,6 +150,22 @@ pub struct Annulus {
     pub outer_circle: Circle,
 }
 impl Primitive2d for Annulus {}
+
+impl Measured2d for Annulus {
+    /// Get the area of the annulus
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
+    }
+
+    /// Get the perimeter or circumference of the annulus,
+    /// which is the sum of the perimeters of the inner and outer circles.
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    fn perimeter(&self) -> f32 {
+        2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
+    }
+}
 
 impl Default for Annulus {
     /// Returns the default [`Annulus`] with radii of `0.5` and `1.0`.
@@ -179,20 +197,6 @@ impl Annulus {
     #[inline(always)]
     pub fn thickness(&self) -> f32 {
         self.outer_circle.radius - self.inner_circle.radius
-    }
-
-    /// Get the area of the annulus
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
-    }
-
-    /// Get the perimeter or circumference of the annulus,
-    /// which is the sum of the perimeters of the inner and outer circles.
-    #[inline(always)]
-    #[doc(alias = "circumference")]
-    pub fn perimeter(&self) -> f32 {
-        2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
     }
 
     /// Finds the point on the annulus that is closest to the given `point`:
@@ -386,6 +390,27 @@ pub struct Triangle2d {
 }
 impl Primitive2d for Triangle2d {}
 
+impl Measured2d for Triangle2d {
+    /// Get the area of the triangle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs() / 2.0
+    }
+
+    /// Get the perimeter of the triangle
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+
+        let ab = a.distance(b);
+        let bc = b.distance(c);
+        let ca = c.distance(a);
+
+        ab + bc + ca
+    }
+}
+
 impl Default for Triangle2d {
     /// Returns the default [`Triangle2d`] with the vertices `[0.0, 0.5]`, `[-0.5, -0.5]`, and `[0.5, -0.5]`.
     fn default() -> Self {
@@ -402,25 +427,6 @@ impl Triangle2d {
         Self {
             vertices: [a, b, c],
         }
-    }
-
-    /// Get the area of the triangle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-        (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs() / 2.0
-    }
-
-    /// Get the perimeter of the triangle
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-
-        let ab = a.distance(b);
-        let bc = b.distance(c);
-        let ca = c.distance(a);
-
-        ab + bc + ca
     }
 
     /// Get the [`WindingOrder`] of the triangle
@@ -491,6 +497,20 @@ pub struct Rectangle {
 }
 impl Primitive2d for Rectangle {}
 
+impl Measured2d for Rectangle {
+    /// Get the area of the rectangle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        4.0 * self.half_size.x * self.half_size.y
+    }
+
+    /// Get the perimeter of the rectangle
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        4.0 * (self.half_size.x + self.half_size.y)
+    }
+}
+
 impl Default for Rectangle {
     /// Returns the default [`Rectangle`] with a half-width and half-height of `0.5`.
     fn default() -> Self {
@@ -536,18 +556,6 @@ impl Rectangle {
     #[inline(always)]
     pub fn size(&self) -> Vec2 {
         2.0 * self.half_size
-    }
-
-    /// Get the area of the rectangle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        4.0 * self.half_size.x * self.half_size.y
-    }
-
-    /// Get the perimeter of the rectangle
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        4.0 * (self.half_size.x + self.half_size.y)
     }
 
     /// Finds the point on the rectangle that is closest to the given `point`.
@@ -630,6 +638,22 @@ pub struct RegularPolygon {
 }
 impl Primitive2d for RegularPolygon {}
 
+impl Measured2d for RegularPolygon {
+    /// Get the area of the regular polygon
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let angle: f32 = 2.0 * PI / (self.sides as f32);
+        (self.sides as f32) * self.circumradius().powi(2) * angle.sin() / 2.0
+    }
+
+    /// Get the perimeter of the regular polygon.
+    /// This is the sum of its sides
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        self.sides as f32 * self.side_length()
+    }
+}
+
 impl Default for RegularPolygon {
     /// Returns the default [`RegularPolygon`] with six sides (a hexagon) and a circumradius of `0.5`.
     fn default() -> Self {
@@ -680,20 +704,6 @@ impl RegularPolygon {
     #[inline(always)]
     pub fn side_length(&self) -> f32 {
         2.0 * self.circumradius() * (PI / self.sides as f32).sin()
-    }
-
-    /// Get the area of the regular polygon
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        let angle: f32 = 2.0 * PI / (self.sides as f32);
-        (self.sides as f32) * self.circumradius().powi(2) * angle.sin() / 2.0
-    }
-
-    /// Get the perimeter of the regular polygon.
-    /// This is the sum of its sides
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        self.sides as f32 * self.side_length()
     }
 
     /// Get the internal angle of the regular polygon in degrees.
