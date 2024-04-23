@@ -773,6 +773,16 @@ pub struct Capsule2d {
 }
 impl Primitive2d for Capsule2d {}
 
+impl Measured2d for Capsule2d {
+    fn area(&self) -> f32 {
+        (PI * self.radius + 4. * self.half_length) * self.radius
+    }
+
+    fn perimeter(&self) -> f32 {
+        2. * PI * self.radius + 4. * self.half_length
+    }
+}
+
 impl Default for Capsule2d {
     /// Returns the default [`Capsule2d`] with a radius of `0.5` and a half-height of `0.5`,
     /// excluding the hemicircles.
