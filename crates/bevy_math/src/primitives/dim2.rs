@@ -774,10 +774,12 @@ pub struct Capsule2d {
 impl Primitive2d for Capsule2d {}
 
 impl Measured2d for Capsule2d {
+    #[inline(always)]
     fn area(&self) -> f32 {
         (PI * self.radius + 4. * self.half_length) * self.radius
     }
 
+    #[inline(always)]
     fn perimeter(&self) -> f32 {
         2. * PI * self.radius + 4. * self.half_length
     }
