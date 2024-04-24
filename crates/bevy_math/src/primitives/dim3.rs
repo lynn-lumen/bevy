@@ -930,7 +930,9 @@ impl Tetrahedron {
 }
 
 /// A primitive that can represent any prism
-/// by extruding the `base_shape` by a given `depth`
+/// by extruding the `base_shape` by a given `depth` in the z-direction
+///
+/// The base of the resulting prism will be contained in a plane parallel to the XY-plane
 pub struct Extrusion<T: Primitive2d> {
     /// The base of the prism or the shape to be extruded
     pub base_shape: T,
