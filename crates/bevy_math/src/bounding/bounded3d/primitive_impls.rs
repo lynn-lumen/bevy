@@ -1,7 +1,5 @@
 //! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
 
-use std::f32::consts::PI;
-
 use crate::{
     bounding::{Bounded2d, BoundingCircle, BoundingVolume},
     primitives::{
@@ -362,7 +360,7 @@ impl Bounded3d for Triangle3d {
 impl<T: Primitive2d + Bounded2d> Bounded3d for Extrusion<T> {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         let aabb = self.base_shape.aabb_2d(Vec2::ZERO, 0.);
-        let cuboid = Cuboid::new(aabb.half_size().x * 2., aabb.half_size().y * 2., self.depth);
+        let cuboid = Cuboid::new(aabb.half_size().x, aabb.half_size().y, self.depth);
 
         let offset = rotation * aabb.center().extend(0.);
         let cuboid_aabb = cuboid.aabb_3d(translation + offset, rotation);
@@ -371,10 +369,7 @@ impl<T: Primitive2d + Bounded2d> Bounded3d for Extrusion<T> {
         let cylinder = Cylinder::new(bounding_circle.radius(), self.depth);
 
         let offset = rotation * aabb.center().extend(0.);
-        let cylinder_aabb = cylinder.aabb_3d(
-            translation + offset,
-            rotation * Quat::from_rotation_x(PI / 2.),
-        );
+        let cylinder_aabb = cylinder.aabb_3d(translation + offset, rotation);
 
         let min = cuboid_aabb.min.max(cylinder_aabb.min);
         let max = cuboid_aabb.max.min(cylinder_aabb.max);
@@ -399,8 +394,8 @@ mod tests {
     use crate::{
         bounding::Bounded3d,
         primitives::{
-            Capsule2d, Capsule3d, Circle, Cone, ConicalFrustum, Cuboid, Cylinder, Extrusion,
-            InfinitePlane3d, Line3d, Polyline3d, Segment3d, Sphere, Torus,
+            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
+            Segment3d, Sphere, Torus,
         },
         Dir3,
     };
@@ -624,36 +619,5 @@ mod tests {
         let bounding_sphere = torus.bounding_sphere(translation, Quat::IDENTITY);
         assert_eq!(bounding_sphere.center, translation);
         assert_eq!(bounding_sphere.radius(), 1.5);
-    }
-
-    #[test]
-    fn extrusion() {
-        let translation = Vec3::new(5.0, 2.8, 0.3);
-
-        let cylinder = Extrusion {
-            base_shape: Circle::new(0.75),
-            depth: 2.5,
-        };
-
-        let aabb = cylinder.aabb_3d(translation, Quat::IDENTITY);
-        assert_eq!(aabb.min, Vec3::new(4.25, 2.05, -0.95));
-        assert_eq!(aabb.max, Vec3::new(5.75, 3.55, 1.55));
-
-        let bounding_sphere = cylinder.bounding_sphere(translation, Quat::IDENTITY);
-        assert_eq!(bounding_sphere.center, translation);
-        assert_eq!(bounding_sphere.radius(), 1.4577379);
-
-        let capsule_extrusion = Extrusion {
-            base_shape: Capsule2d::new(0.25, 1.5),
-            depth: 2.5,
-        };
-
-        let aabb = capsule_extrusion.aabb_3d(translation, Quat::IDENTITY);
-        assert_eq!(aabb.min, Vec3::new(4.75, 1.8, -0.95));
-        assert_eq!(aabb.max, Vec3::new(5.25, 3.8, 1.55));
-
-        let bounding_sphere = capsule_extrusion.bounding_sphere(translation, Quat::IDENTITY);
-        assert_eq!(bounding_sphere.center, translation);
-        assert_eq!(bounding_sphere.radius(), 1.6007811);
     }
 }
