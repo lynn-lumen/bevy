@@ -17,6 +17,7 @@ pub mod bounding;
 mod common_traits;
 pub mod cubic_splines;
 mod direction;
+mod elliptic;
 mod float_ord;
 pub mod primitives;
 mod ray;
