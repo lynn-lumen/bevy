@@ -8,7 +8,34 @@ use std::f32::{consts::PI, INFINITY, NAN};
 /// `phi` must be in the range `(0, PI / 2)` and
 /// `m` must be in the range `(0, 1)`
 pub fn el2(x: f32, m: f32) -> f32 {
-    todo!();
+    if x == 0. {
+        return 0.;
+    }
+    if x == 1. {
+        return cel2(m);
+    }
+    if m == 0. {
+        return x.asin();
+    }
+    if m == 1. {
+        return x;
+    }
+
+    let x2 = x * x;
+    let p = (1. - x) * (1. + x);
+    let q = 1. - m * x2;
+    if q < 0. {
+        return NAN;
+    } else if m < 0. {
+        return x * (rf(p, q, 1.) - (m * x2 * rd(p, q, 1.)) / 3.);
+    } else if m < 1. {
+        return x
+            * ((1. - m) * rf(p, q, 1.)
+                + (m * (1. - m) * x2 * rd(p, 1., q)) / 3.
+                + m * (p / q).sqrt());
+    } else {
+        return x * ((m - 1.) * x2 * rd(q, 1., p) / 3. + (q / p).sqrt());
+    }
 }
 
 /// Computes the incomplete elliptic integral of the second kind for `m`: E(m).
@@ -22,12 +49,6 @@ pub fn cel2(m: f32) -> f32 {
     if m == 1. {
         return 1.;
     }
-
-    if m < -2e6 {
-        let b = (-16. * m).ln();
-        let a = (-m).sqrt();
-        return a + 0.25 * (b + 1.) / a - 1. / 32. * (b - 1.5) / a.powi(3);
-    };
 
     if m > 0.99999 {
         let m1 = 1. - m;
