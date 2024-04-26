@@ -7,7 +7,7 @@ use std::f32::consts::PI;
 ///
 /// `phi` must be in the range `(0, PI / 2)` and
 /// `m` must be in the range `(0, 1)`
-pub fn elliptic_f(phi: f32, m: f32) -> f32 {
+pub fn el1(phi: f32, m: f32) -> f32 {
     const PHI_S: f32 = 1.249;
     const GAMMA_S: f32 = 0.9;
 
@@ -21,7 +21,7 @@ pub fn elliptic_f(phi: f32, m: f32) -> f32 {
         let x = c * c;
         let d2 = mc + m * x;
         if x < GAMMA_S * d2 {
-            let elf = elliptic_k(mc) - asn(c / d2.sqrt(), m);
+            let elf = cel1(mc) - asn(c / d2.sqrt(), m);
             return elf;
         } else {
             let v = mc * (1. - x);
@@ -29,7 +29,7 @@ pub fn elliptic_f(phi: f32, m: f32) -> f32 {
                 let elf = acn(c, mc);
                 return elf;
             } else {
-                let elf = elliptic_k(mc) - acn(f32::sqrt(v / d2), mc);
+                let elf = cel1(mc) - acn(f32::sqrt(v / d2), mc);
                 return elf;
             }
         }
@@ -117,11 +117,11 @@ fn serf(y: f32, m: f32) -> f32 {
     1.0 + y * (u1 + y * (u2 + y * (u3 + y * (u4 + y * (u5 + y * u6)))))
 }
 
-/// Computes the complete elliptic integral of the first kind for a given `m`:
-/// The result will have a relative error of less than 6 machine epsilons
+/// Computes the complete elliptic integral of the first kind for a given `m`: K(m)
+/// The result will have a relative error of less than 5 machine epsilons
 ///
 /// `m` should be in the range `(0, 1)`
-pub fn elliptic_k(m: f32) -> f32 {
+pub fn cel1(m: f32) -> f32 {
     if m < 0.9 {
         elliptic_k_small(m)
     } else {
@@ -239,7 +239,7 @@ fn elliptic_k_large(m: f32) -> f32 {
 }
 
 mod tests {
-    use crate::elliptic::{elliptic_f, elliptic_k};
+    use crate::elliptic::{cel1, el1};
     use approx::assert_relative_eq;
     use std::{
         f32::consts::{FRAC_PI_2, FRAC_PI_4},
@@ -250,63 +250,43 @@ mod tests {
 
     #[test]
     fn complete_integral_first_kind_low() {
-        assert_relative_eq!(elliptic_k(0.), FRAC_PI_2);
-        assert_relative_eq!(elliptic_k(0.00001), 1.570800253);
-        assert_relative_eq!(elliptic_k(0.09), 1.60804861);
-        assert_relative_eq!(elliptic_k(0.185), 1.65213899);
-        assert_relative_eq!(elliptic_k(0.25), 1.68575035);
-        assert_relative_eq!(elliptic_k(0.31), 1.71978481);
-        assert_relative_eq!(elliptic_k(0.493), 1.84818918);
-        assert_relative_eq!(elliptic_k(0.5), 1.854074677);
-        assert_relative_eq!(elliptic_k(0.597), 1.94633962);
-        assert_relative_eq!(elliptic_k(0.618), 1.96950524);
-        assert_relative_eq!(elliptic_k(0.75), 2.15651565);
-        assert_relative_eq!(elliptic_k(0.801), 2.25948339);
-        assert_relative_eq!(elliptic_k(0.853), 2.39835076);
+        assert_relative_eq!(cel1(0.), FRAC_PI_2);
+        assert_relative_eq!(cel1(0.00001), 1.570800253);
+        assert_relative_eq!(cel1(0.09), 1.60804861);
+        assert_relative_eq!(cel1(0.185), 1.65213899);
+        assert_relative_eq!(cel1(0.25), 1.68575035);
+        assert_relative_eq!(cel1(0.31), 1.71978481);
+        assert_relative_eq!(cel1(0.493), 1.84818918);
+        assert_relative_eq!(cel1(0.5), 1.854074677);
+        assert_relative_eq!(cel1(0.597), 1.94633962);
+        assert_relative_eq!(cel1(0.618), 1.96950524);
+        assert_relative_eq!(cel1(0.75), 2.15651565);
+        assert_relative_eq!(cel1(0.801), 2.25948339);
+        assert_relative_eq!(cel1(0.853), 2.39835076);
     }
 
     #[test]
     fn complete_integral_first_kind_high() {
         // Use the larger epsilon for the high tests
-        assert_relative_eq!(elliptic_k(0.903), 2.59243319, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(elliptic_k(0.916), 2.66041638, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(elliptic_k(0.924), 2.70791714, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(elliptic_k(0.933), 2.76797262, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(elliptic_k(0.948), 2.88945822, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(elliptic_k(0.952), 2.92800816, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(elliptic_k(0.961), 3.02837751, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(elliptic_k(0.976), 3.26482357, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(elliptic_k(0.985), 3.49554409, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(elliptic_k(0.995), 4.03925748, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(elliptic_k(1.), f32::INFINITY, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(cel1(0.903), 2.59243319, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(cel1(0.916), 2.66041638, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(cel1(0.924), 2.70791714, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(cel1(0.933), 2.76797262, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(cel1(0.948), 2.88945822, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(cel1(0.952), 2.92800816, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(cel1(0.961), 3.02837751, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(cel1(0.976), 3.26482357, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(cel1(0.985), 3.49554409, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(cel1(0.995), 4.03925748, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(cel1(1.), f32::INFINITY, max_relative = FIVE_EPSILON);
     }
 
     #[test]
     fn incomplete_integral_first_kind() {
-        assert_relative_eq!(
-            elliptic_f(FRAC_PI_4, 0.),
-            0.7853982,
-            max_relative = FIVE_EPSILON
-        );
-        assert_relative_eq!(
-            elliptic_f(FRAC_PI_4, 0.25),
-            0.8043661,
-            max_relative = FIVE_EPSILON
-        );
-        assert_relative_eq!(
-            elliptic_f(FRAC_PI_4, 0.5),
-            0.8260179,
-            max_relative = FIVE_EPSILON
-        );
-        assert_relative_eq!(
-            elliptic_f(FRAC_PI_4, 0.75),
-            0.8512237,
-            max_relative = FIVE_EPSILON
-        );
-        assert_relative_eq!(
-            elliptic_f(FRAC_PI_4, 1.0),
-            0.8813736,
-            max_relative = FIVE_EPSILON
-        );
+        assert_relative_eq!(el1(FRAC_PI_4, 0.), 0.7853982, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(el1(FRAC_PI_4, 0.25), 0.8043661, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(el1(FRAC_PI_4, 0.5), 0.8260179, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(el1(FRAC_PI_4, 0.75), 0.8512237, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(el1(FRAC_PI_4, 1.0), 0.8813736, max_relative = FIVE_EPSILON);
     }
 }
