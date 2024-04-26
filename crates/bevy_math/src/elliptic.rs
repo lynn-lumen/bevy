@@ -4,8 +4,12 @@ use std::f32::{consts::PI, INFINITY, NAN};
 
 /// Computes the incomplete elliptic integral of the first kind for a given `x` and `m`: F(x | m)
 ///
+/// Please note the use of the parameters `x` and `m`. You may be familiar with some other representations:
+/// `m = k^2` and `x = sin(phi)`
+///
 /// `x` should be in the range `-1. <= x <= 1.` and
 /// `m <= 1 / x^2` else `NAN` will be returned
+#[must_use]
 pub fn el1(x: f32, m: f32) -> f32 {
     if x.is_nan() || m.is_nan() || x.abs() > 1. {
         return NAN;
@@ -37,9 +41,13 @@ pub fn el1(x: f32, m: f32) -> f32 {
 
 /// Computes the complete elliptic integral of the first kind for a given `m`: K(m)
 ///
-/// The result will have a relative error of less than 5 machine epsilons
+/// Please note the use of the parameter `m`. You may be familiar with some other representations:
+/// `m = k^2`
 ///
 /// `m` should be less than or equal to `1`, `m <= 1.` else `NAN` will be returned
+///
+/// The result will have a relative error of less than 5 machine epsilons
+#[must_use]
 pub fn cel1(m: f32) -> f32 {
     if m.is_nan() || m > 1. {
         return NAN;
@@ -73,8 +81,18 @@ pub fn cel1(m: f32) -> f32 {
     rf(0., 1. - m, 1.)
 }
 
-/// Computes the incomplete elliptic integral of the second kind for `phi` and `m`: E(phi | m).
+/// Computes the incomplete elliptic integral of the second kind for `phi` and `m`: E(x | m).
+///
+/// Please note the use of the parameters `x` and `m`. You may be familiar with some other representations:
+/// `m = k^2` and `x = sin(phi)`
+///
+/// `x` should be in the range `-1. <= x <= 1.` and
+/// `m <= 1 / x^2` else `NAN` will be returned
+#[must_use]
 pub fn el2(x: f32, m: f32) -> f32 {
+    if x.is_nan() || m.is_nan() || x.abs() > 1. {
+        return NAN;
+    };
     if x == 0. {
         return 0.;
     }
@@ -106,6 +124,12 @@ pub fn el2(x: f32, m: f32) -> f32 {
 }
 
 /// Computes the incomplete elliptic integral of the second kind for `m`: E(m).
+///
+/// Please note the use of the parameter `m`. You may be familiar with some other representations:
+/// `m = k^2`
+///
+/// `m` should be less than or equal to `1`, `m <= 1.` else `NAN` will be returned
+#[must_use]
 pub fn cel2(m: f32) -> f32 {
     if m == 0. {
         return PI / 2.;
@@ -319,10 +343,7 @@ fn rg(x: f32, y: f32, z: f32) -> f32 {
 mod tests {
     use crate::elliptic::{cel1, cel2, el1};
     use approx::assert_relative_eq;
-    use std::{
-        f32::consts::{FRAC_PI_2, FRAC_PI_4},
-        time::Instant,
-    };
+    use std::{f32::consts::FRAC_PI_2, time::Instant};
 
     const FIVE_EPSILON: f32 = 6. * f32::EPSILON;
 
@@ -360,12 +381,24 @@ mod tests {
     }
 
     #[test]
+    fn complete_integral_first_kind_neg() {
+        // Use the larger epsilon for the high tests
+        assert_relative_eq!(cel1(-200.), 0.285082033);
+        assert_relative_eq!(cel1(-800.3), 0.167115406);
+        assert_relative_eq!(cel1(-1374.), 0.134843379);
+        assert_relative_eq!(cel1(-6723.5), 0.070646507);
+        assert_relative_eq!(cel1(-3167901.), 0.004983866);
+        assert_relative_eq!(cel1(f32::NEG_INFINITY), 0.);
+    }
+
+    #[test]
     fn incomplete_integral_first_kind() {
-        assert_relative_eq!(el1(FRAC_PI_4, 0.), 0.7853982, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(el1(FRAC_PI_4, 0.25), 0.8043661, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(el1(FRAC_PI_4, 0.5), 0.8260179, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(el1(FRAC_PI_4, 0.75), 0.8512237, max_relative = FIVE_EPSILON);
-        assert_relative_eq!(el1(FRAC_PI_4, 1.0), 0.8813736, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(el1(0., 23.), 0., max_relative = FIVE_EPSILON);
+        assert_relative_eq!(el1(0.1, 3.), 0.1005058, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(el1(-0.9, 1.1), -1.080076, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(el1(-0.7, 2.3), -1.001132, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(el1(-1., -90.), -0.3191897, max_relative = FIVE_EPSILON);
+        assert_relative_eq!(el1(-0.02, 100.), -0.02013578, max_relative = FIVE_EPSILON);
     }
 
     #[test]
