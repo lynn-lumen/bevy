@@ -10,7 +10,7 @@ pub use dim3::*;
 mod serde;
 
 /// A marker trait for 2D primitives
-pub trait Primitive2d {}
+pub trait Primitive2d: Clone {}
 
 /// A marker trait for 3D primitives
 pub trait Primitive3d {}

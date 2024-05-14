@@ -931,6 +931,7 @@ impl Tetrahedron {
 
 /// A primitive that can represent any prism
 /// by extruding the `base_shape` by a given `depth`
+#[derive(Debug, Clone)]
 pub struct Extrusion<T: Primitive2d> {
     /// The base of the prism or the shape to be extruded
     pub base_shape: T,
