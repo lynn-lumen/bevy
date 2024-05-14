@@ -4,7 +4,7 @@ use crate::{
     render_asset::RenderAssetUsages,
 };
 
-use super::Meshable;
+use super::{ExtrudableMesh, Meshable};
 use bevy_math::primitives::{
     Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
     WindingOrder,
@@ -345,6 +345,17 @@ impl Meshable for Triangle2d {
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
+impl ExtrudableMesh for Triangle2d {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        let is_ccw = self.winding_order() == WindingOrder::CounterClockwise;
+        let indices = if is_ccw {
+            Indices::U32(vec![0, 1, 2, 0])
+        } else {
+            Indices::U32(vec![2, 1, 0, 2])
+        };
+        vec![indices]
+    }
+}
 
 impl From<Triangle2d> for Mesh {
     fn from(triangle: Triangle2d) -> Self {
@@ -375,6 +386,11 @@ impl Meshable for Rectangle {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    }
+}
+impl ExtrudableMesh for Rectangle {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        vec![Indices::U32(vec![0, 1, 2, 3, 0])]
     }
 }
 
