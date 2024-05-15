@@ -90,6 +90,12 @@ impl Meshable for RegularPolygon {
     }
 }
 
+impl ExtrudableMesh for RegularPolygon {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        vec![Indices::U32((0..self.sides as u32).chain([0]).collect())]
+    }
+}
+
 impl From<RegularPolygon> for Mesh {
     fn from(polygon: RegularPolygon) -> Self {
         polygon.mesh()
