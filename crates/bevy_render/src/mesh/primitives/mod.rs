@@ -18,8 +18,8 @@
 //! let circle = meshes.add(Circle { radius: 25.0 }.mesh().resolution(64));
 //! # }
 //! ```
-
 mod dim2;
+
 pub use dim2::{CircleMeshBuilder, EllipseMeshBuilder};
 
 mod dim3;
@@ -28,12 +28,19 @@ pub use dim3::*;
 mod extrusion;
 pub use extrusion::*;
 
+use super::Mesh;
+
 /// A trait for shapes that can be turned into a [`Mesh`](super::Mesh).
 pub trait Meshable {
-    /// The output of [`Self::mesh`]. This can either be a [`Mesh`](super::Mesh)
-    /// or a builder used for creating a [`Mesh`](super::Mesh).
+    /// The output of [`Self::mesh`]. This can either be a [`Mesh`]
+    /// or a builder implementing [`MeshBuilder`] used for creating a [`Mesh`].
     type Output;
 
-    /// Creates a [`Mesh`](super::Mesh) for a shape.
+    /// Creates a [`Mesh`] for a shape.
     fn mesh(&self) -> Self::Output;
+}
+
+pub trait MeshBuilder {
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    fn build(&self) -> Mesh;
 }

@@ -4,7 +4,7 @@ use crate::{
     render_asset::RenderAssetUsages,
 };
 
-use super::{ExtrudableMesh, Meshable};
+use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::primitives::{
     Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
     WindingOrder,
@@ -48,9 +48,10 @@ impl CircleMeshBuilder {
         self.resolution = resolution;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for CircleMeshBuilder {
+    fn build(&self) -> Mesh {
         RegularPolygon::new(self.circle.radius, self.resolution).mesh()
     }
 }
@@ -63,6 +64,14 @@ impl Meshable for Circle {
             circle: *self,
             ..Default::default()
         }
+    }
+}
+
+impl Extrudable for CircleMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        vec![Indices::U32(
+            (0..self.resolution as u32).chain([0]).collect(),
+        )]
     }
 }
 
@@ -90,7 +99,7 @@ impl Meshable for RegularPolygon {
     }
 }
 
-impl ExtrudableMesh for RegularPolygon {
+impl Extrudable for RegularPolygon {
     fn perimeter_indices(&self) -> Vec<Indices> {
         vec![Indices::U32((0..self.sides as u32).chain([0]).collect())]
     }
@@ -139,9 +148,10 @@ impl EllipseMeshBuilder {
         self.resolution = resolution;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for EllipseMeshBuilder {
+    fn build(&self) -> Mesh {
         let mut indices = Vec::with_capacity((self.resolution - 2) * 3);
         let mut positions = Vec::with_capacity(self.resolution);
         let normals = vec![[0.0, 0.0, 1.0]; self.resolution];
@@ -185,6 +195,14 @@ impl Meshable for Ellipse {
             ellipse: *self,
             ..Default::default()
         }
+    }
+}
+
+impl Extrudable for EllipseMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        vec![Indices::U32(
+            (0..self.resolution as u32).chain([0]).collect(),
+        )]
     }
 }
 
@@ -235,9 +253,10 @@ impl AnnulusMeshBuilder {
         self.resolution = resolution;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for AnnulusMeshBuilder {
+    fn build(&self) -> Mesh {
         let inner_radius = self.annulus.inner_circle.radius;
         let outer_radius = self.annulus.outer_circle.radius;
 
@@ -306,6 +325,15 @@ impl Meshable for Annulus {
     }
 }
 
+impl Extrudable for AnnulusMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        let vert_count = 2 * self.resolution as u32;
+        let inner = (0..vert_count).step_by(2).chain([0]).rev().collect();
+        let outer = (1..vert_count).step_by(2).chain([1]).collect();
+        vec![Indices::U32(inner), Indices::U32(outer)]
+    }
+}
+
 impl From<Annulus> for Mesh {
     fn from(annulus: Annulus) -> Self {
         annulus.mesh().build()
@@ -351,7 +379,7 @@ impl Meshable for Triangle2d {
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
-impl ExtrudableMesh for Triangle2d {
+impl Extrudable for Triangle2d {
     fn perimeter_indices(&self) -> Vec<Indices> {
         let is_ccw = self.winding_order() == WindingOrder::CounterClockwise;
         let indices = if is_ccw {
@@ -394,7 +422,7 @@ impl Meshable for Rectangle {
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
-impl ExtrudableMesh for Rectangle {
+impl Extrudable for Rectangle {
     fn perimeter_indices(&self) -> Vec<Indices> {
         vec![Indices::U32(vec![0, 1, 2, 3, 0])]
     }
@@ -445,9 +473,10 @@ impl Capsule2dMeshBuilder {
         self.resolution = resolution;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for Capsule2dMeshBuilder {
+    fn build(&self) -> Mesh {
         // The resolution is the number of vertices for one semicircle
         let resolution = self.resolution as u32;
         let vertex_count = 2 * self.resolution;
@@ -519,6 +548,14 @@ impl Capsule2dMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         .with_inserted_indices(Indices::U32(indices))
+    }
+}
+
+impl Extrudable for Capsule2dMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        vec![Indices::U32(
+            (0..(self.resolution as u32 * 2)).chain([0]).collect(),
+        )]
     }
 }
 
