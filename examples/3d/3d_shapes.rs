@@ -4,7 +4,7 @@
 use std::f32::consts::{PI, TAU};
 
 use bevy::{
-    color::palettes::css::{BLUE, GREEN, RED, WHITE},
+    color::palettes::css::{BLUE, GREEN, ORANGE, RED, WHITE},
     prelude::*,
 };
 
@@ -16,6 +16,53 @@ fn main() {
         .run();
 }
 
+impl Projectable for ShapeProjection<Capsule3d> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let r = self.primitive.radius;
+        let half_height = self.primitive.half_length;
+        let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
+        let local_x = local_y.rotate(Vec2::NEG_Y);
+        let dir = self.rotation.conjugate() * Vec3::NEG_Z;
+
+        let y_offset = half_height * dir.xz().length();
+        vec![
+            PerimeterSegment {
+                max_samples: None,
+                sampler: Box::new(move |t: f32| {
+                    let (sin, cos) = (PI * t).sin_cos();
+                    cos * r * local_x + (sin * r + y_offset) * local_y
+                }),
+            },
+            PerimeterSegment {
+                max_samples: None,
+                sampler: Box::new(move |t: f32| {
+                    let (sin, cos) = (PI * t).sin_cos();
+                    cos * r * local_x - (sin * r + y_offset) * local_y
+                }),
+            },
+            PerimeterSegment {
+                max_samples: Some(2),
+                sampler: Box::new(move |t: f32| {
+                    if t < 0.5 {
+                        r * local_x + y_offset * local_y
+                    } else {
+                        r * local_x - y_offset * local_y
+                    }
+                }),
+            },
+            PerimeterSegment {
+                max_samples: Some(2),
+                sampler: Box::new(move |t: f32| {
+                    if t < 0.5 {
+                        -r * local_x + y_offset * local_y
+                    } else {
+                        -r * local_x - y_offset * local_y
+                    }
+                }),
+            },
+        ]
+    }
+}
 impl Projectable for ShapeProjection<Cylinder> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         let r = self.primitive.radius;
@@ -113,7 +160,11 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos) {
                 t.translation.xy(),
                 GREEN.into(),
             ),
-            1 => {}
+            1 => gizmos.projection(
+                ShapeProjection::new(Capsule3d::default(), t.rotation),
+                t.translation.xy(),
+                ORANGE.into(),
+            ),
             2 => gizmos.projection(
                 ShapeProjection::new(Sphere::default(), t.rotation),
                 t.translation.xy(),
@@ -140,7 +191,7 @@ fn setup(
 
     let shapes = [
         meshes.add(Cylinder::default()),
-        meshes.add(Tetrahedron::default()),
+        meshes.add(Capsule3d::default()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
     ];
 
