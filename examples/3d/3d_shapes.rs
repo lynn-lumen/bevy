@@ -1,69 +1,166 @@
 //! This example demonstrates the built-in 3d shapes in Bevy.
 //! The scene includes a patterned texture and a rotation for visualizing the normals and UVs.
 
-use std::f32::consts::PI;
+use std::f32::consts::{PI, TAU};
 
 use bevy::{
-    color::palettes::basic::SILVER,
+    color::palettes::css::{BLUE, GREEN, RED, WHITE},
     prelude::*,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, setup)
-        .add_systems(Update, rotate)
+        .add_systems(Update, (rotate, draw_gizmos))
         .run();
+}
+
+impl Projectable for ShapeProjection<Cylinder> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let r = self.primitive.radius;
+        let half_height = self.primitive.half_height;
+        let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
+        let local_x = local_y.rotate(Vec2::NEG_Y);
+        let dir = self.rotation.conjugate() * Vec3::NEG_Z;
+
+        let semi_minor = dir.y.abs() * r;
+        let y_offset = half_height * dir.xz().length();
+        vec![
+            PerimeterSegment {
+                max_samples: None,
+                sampler: Box::new(move |t: f32| {
+                    let (sin, cos) = (PI * t).sin_cos();
+                    cos * r * local_x + (sin * semi_minor + y_offset) * local_y
+                }),
+            },
+            PerimeterSegment {
+                max_samples: None,
+                sampler: Box::new(move |t: f32| {
+                    let (sin, cos) = (PI * t).sin_cos();
+                    cos * r * local_x - (sin * semi_minor + y_offset) * local_y
+                }),
+            },
+            PerimeterSegment {
+                max_samples: Some(2),
+                sampler: Box::new(move |t: f32| {
+                    if t < 0.5 {
+                        r * local_x + y_offset * local_y
+                    } else {
+                        r * local_x - y_offset * local_y
+                    }
+                }),
+            },
+            PerimeterSegment {
+                max_samples: Some(2),
+                sampler: Box::new(move |t: f32| {
+                    if t < 0.5 {
+                        -r * local_x + y_offset * local_y
+                    } else {
+                        -r * local_x - y_offset * local_y
+                    }
+                }),
+            },
+        ]
+    }
+}
+impl Projectable for ShapeProjection<Sphere> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let r = self.primitive.radius;
+        vec![PerimeterSegment {
+            max_samples: None,
+            sampler: Box::new(move |t: f32| {
+                let (sin, cos) = (TAU * t).sin_cos();
+                Vec2::new(cos, sin) * r
+            }),
+        }]
+    }
 }
 
 /// A marker component for our shapes so we can query them separately from the ground plane
 #[derive(Component)]
-struct Shape;
+struct Shape(usize);
 
 const X_EXTENT: f32 = 12.0;
+
+fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos) {
+    let mut first = true;
+    for (t, Shape(i)) in shapes.iter() {
+        if first {
+            let dir = t.rotation.conjugate() * Vec3::NEG_Z;
+            gizmos.line_2d(
+                Vec2::Y * (3. + 0.0),
+                Vec2::X * X_EXTENT / 2. * dir.x + Vec2::Y * (3. + 0.0),
+                RED,
+            );
+            gizmos.line_2d(
+                Vec2::Y * (3. + 0.1),
+                Vec2::X * X_EXTENT / 2. * dir.y + Vec2::Y * (3. + 0.1),
+                GREEN,
+            );
+            gizmos.line_2d(
+                Vec2::Y * (3. + 0.2),
+                Vec2::X * X_EXTENT / 2. * dir.z + Vec2::Y * (3. + 0.2),
+                BLUE,
+            );
+            first = false;
+        }
+
+        gizmos.axes(t.clone(), 1.);
+        match *i {
+            0 => gizmos.projection(
+                ShapeProjection::new(Cylinder::default(), t.rotation),
+                t.translation.xy(),
+                GREEN.into(),
+            ),
+            1 => {}
+            2 => gizmos.projection(
+                ShapeProjection::new(Sphere::default(), t.rotation),
+                t.translation.xy(),
+                RED.into(),
+            ),
+            _ => todo!(),
+        }
+    }
+}
 
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut gizmo_config: ResMut<GizmoConfigStore>,
 ) {
+    let (config, _) = gizmo_config.config_mut::<DefaultGizmoConfigGroup>();
+    config.depth_bias = -1.;
+
     let debug_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(uv_debug_texture())),
+        base_color: WHITE.into(),
         ..default()
     });
 
     let shapes = [
-        meshes.add(Cuboid::default()),
-        meshes.add(Tetrahedron::default()),
-        meshes.add(Capsule3d::default()),
-        meshes.add(Torus::default()),
         meshes.add(Cylinder::default()),
-        meshes.add(Cone::default()),
-        meshes.add(Sphere::default().mesh().ico(5).unwrap()),
+        meshes.add(Tetrahedron::default()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
     ];
 
     let num_shapes = shapes.len();
 
     for (i, shape) in shapes.into_iter().enumerate() {
+        let x = if num_shapes > 1 {
+            -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT
+        } else {
+            0.
+        };
         commands.spawn((
             PbrBundle {
                 mesh: shape,
                 material: debug_material.clone(),
-                transform: Transform::from_xyz(
-                    -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
-                    2.0,
-                    0.0,
-                )
-                .with_rotation(Quat::from_rotation_x(-PI / 4.)),
+                transform: Transform::from_xyz(x, 0.0, 0.0)
+                    .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 ..default()
             },
-            Shape,
+            Shape(i),
         ));
     }
 
@@ -79,50 +176,120 @@ fn setup(
         ..default()
     });
 
-    // ground plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::from(SILVER)),
-        ..default()
-    });
-
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        projection: Projection::Orthographic(OrthographicProjection {
+            scaling_mode: bevy::render::camera::ScalingMode::AutoMax {
+                max_width: 15.,
+                max_height: 200.,
+            },
+            ..Default::default()
+        }),
+        transform: Transform::from_xyz(0.0, 0., 12.0),
         ..default()
     });
 }
 
-fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
+fn rotate(
+    mut query: Query<&mut Transform, With<Shape>>,
+    time: Res<Time>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    let around_x = {
+        let mut delta = 0.;
+        if keys.pressed(KeyCode::KeyS) {
+            delta += 1.;
+        }
+        if keys.pressed(KeyCode::KeyW) {
+            delta -= 1.;
+        }
+        delta * time.delta_seconds()
+    };
+    let around_y = {
+        let mut delta = 0.;
+        if keys.pressed(KeyCode::KeyD) {
+            delta += 1.;
+        }
+        if keys.pressed(KeyCode::KeyA) {
+            delta -= 1.;
+        }
+        delta * time.delta_seconds()
+    };
+    let around_z = {
+        let mut delta = 0.;
+        if keys.pressed(KeyCode::KeyQ) {
+            delta += 1.;
+        }
+        if keys.pressed(KeyCode::KeyE) {
+            delta -= 1.;
+        }
+        delta * time.delta_seconds()
+    };
+
+    let reset = keys.just_pressed(KeyCode::KeyR);
+
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() / 2.);
+        if reset {
+            transform.rotation = Quat::IDENTITY;
+        } else {
+            transform.rotate_x(around_x);
+            transform.rotate_y(around_y);
+            transform.rotate_z(around_z);
+        }
     }
 }
 
-/// Creates a colorful test pattern
-fn uv_debug_texture() -> Image {
-    const TEXTURE_SIZE: usize = 8;
+struct PerimeterSegment {
+    max_samples: Option<usize>,
+    sampler: Box<dyn Fn(f32) -> Vec2>,
+}
 
-    let mut palette: [u8; 32] = [
-        255, 102, 159, 255, 255, 159, 102, 255, 236, 255, 102, 255, 121, 255, 102, 255, 102, 255,
-        198, 255, 102, 198, 255, 255, 121, 102, 255, 255, 236, 102, 255, 255,
-    ];
+trait Projectable {
+    fn perimeter(&self) -> Vec<PerimeterSegment>;
+}
 
-    let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
-    for y in 0..TEXTURE_SIZE {
-        let offset = TEXTURE_SIZE * y * 4;
-        texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
-        palette.rotate_right(4);
+struct ShapeProjection<P: Primitive3d>
+where
+    ShapeProjection<P>: Projectable,
+{
+    primitive: P,
+    rotation: Quat,
+}
+impl<P: Primitive3d> ShapeProjection<P>
+where
+    ShapeProjection<P>: Projectable,
+{
+    fn new(primitive: P, rotation: Quat) -> Self {
+        Self {
+            primitive,
+            rotation,
+        }
     }
+}
 
-    Image::new_fill(
-        Extent3d {
-            width: TEXTURE_SIZE as u32,
-            height: TEXTURE_SIZE as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &texture_data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::RENDER_WORLD,
-    )
+trait GizmoProjection<P: Primitive3d>
+where
+    ShapeProjection<P>: Projectable,
+{
+    fn projection(&mut self, projection: ShapeProjection<P>, position: Vec2, color: Color);
+}
+impl<'w, 's, Config, Clear, P: Primitive3d> GizmoProjection<P> for Gizmos<'w, 's, Config, Clear>
+where
+    ShapeProjection<P>: Projectable,
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn projection(&mut self, projection: ShapeProjection<P>, position: Vec2, color: Color) {
+        const DEFAULT_SAMPLES: usize = 32;
+
+        for segment in projection.perimeter() {
+            let samples = segment.max_samples.unwrap_or(DEFAULT_SAMPLES);
+            let mut linestrip = vec![];
+            for i in 0..samples {
+                let t = i as f32 / (samples as f32 - 1.);
+                linestrip.push((segment.sampler)(t) + position);
+            }
+
+            self.linestrip_2d(linestrip, color);
+        }
+    }
 }
