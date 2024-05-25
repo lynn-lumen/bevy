@@ -12,10 +12,40 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (rotate, draw_gizmos))
+        .add_systems(Update, (input, draw_gizmos))
         .run();
 }
 
+impl Projectable for ShapeProjection<Tetrahedron> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let mut points = self.primitive.vertices.map(|p| (self.rotation * p).xy());
+        points.sort_by(|a, b| (&a.to_angle()).total_cmp(&b.to_angle()));
+        let mut final_positions = vec![];
+        for i in 0..points.len() {
+            let a = points[(i as i32 - 1).rem_euclid(points.len() as i32) as usize];
+            let b = points[(i).rem_euclid(points.len())];
+            let c = points[(i + 1).rem_euclid(points.len())];
+
+            let ac = c - a;
+            let n = Vec2::new(-ac.y, ac.x).normalize();
+            if (n * b).element_sum() - (n*a).element_sum() > 0. {
+                continue;
+            }
+            final_positions.push(b);
+        };
+        final_positions.push(final_positions[0]);
+
+        vec![
+            PerimeterSegment {
+                max_samples: Some(final_positions.len()),
+                sampler: Box::new(move |t: f32| {
+                    let i = (t * final_positions.len() as f32 - 0.001) as usize;
+                    final_positions[i]
+                }),
+            }
+        ]
+    }
+}
 impl Projectable for ShapeProjection<Cone> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         let r = self.primitive.radius;
@@ -225,6 +255,11 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos) {
                 t.translation.xy(),
                 MAGENTA.into(),
             ),
+            4 => gizmos.projection(
+                ShapeProjection::new(Tetrahedron::default(), t.rotation),
+                t.translation.xy(),
+                BLUE.lighter(0.2).into(),
+            ),
             _ => todo!()
         }
     }
@@ -249,6 +284,7 @@ fn setup(
         meshes.add(Capsule3d::default()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
         meshes.add(Cone::default().mesh()),
+        meshes.add(Tetrahedron::default().mesh()),
     ];
 
     let num_shapes = shapes.len();
@@ -296,8 +332,8 @@ fn setup(
     });
 }
 
-fn rotate(
-    mut query: Query<&mut Transform, With<Shape>>,
+fn input(
+    mut query: Query<(&mut Transform, &mut Visibility), With<Shape>>,
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
@@ -333,14 +369,23 @@ fn rotate(
     };
 
     let reset = keys.just_pressed(KeyCode::KeyR);
+    let toggle_visibility = keys.just_pressed(KeyCode::KeyV);
 
-    for mut transform in &mut query {
+    for (mut transform, mut visibility) in &mut query {
         if reset {
             transform.rotation = Quat::IDENTITY;
         } else {
             transform.rotate_x(around_x);
             transform.rotate_y(around_y);
             transform.rotate_z(around_z);
+        }
+
+        if toggle_visibility {
+            if *visibility == Visibility::Hidden {
+                *visibility = Visibility::Visible;
+            } else {
+                *visibility = Visibility::Hidden;
+            }
         }
     }
 }
