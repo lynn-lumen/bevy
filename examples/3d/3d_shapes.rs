@@ -4,7 +4,7 @@
 use std::f32::consts::{PI, TAU};
 
 use bevy::{
-    color::palettes::css::{BLUE, GREEN, ORANGE, RED, WHITE},
+    color::palettes::css::{BLUE, GREEN, MAGENTA, ORANGE, RED, WHITE},
     prelude::*,
 };
 
@@ -16,6 +16,56 @@ fn main() {
         .run();
 }
 
+impl Projectable for ShapeProjection<Cone> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let r = self.primitive.radius;
+        let half_height = self.primitive.height / 2.;
+        let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
+        let local_x = local_y.rotate(Vec2::NEG_Y);
+        let dir = self.rotation.conjugate() * Vec3::NEG_Z;
+        
+        let semi_minor = dir.y.abs() * r;
+        let y_offset = half_height * dir.xz().length();
+
+        if semi_minor > 2. * y_offset {
+            return vec![
+                PerimeterSegment {
+                    max_samples: None,
+                    sampler: Box::new(move |t: f32| {
+                        let (sin, cos) = (TAU * t).sin_cos();
+                        cos * r * local_x - (sin * semi_minor + y_offset) * local_y
+                    }),
+                }
+            ]
+        }
+
+        let intersect_x = r * (1. - (semi_minor / 2. / y_offset).powi(2)).sqrt();
+        let intersect_y = semi_minor * (1. - (intersect_x / r).powi(2)).sqrt() - y_offset;
+        let angle_offset = Vec2::new(semi_minor * intersect_x / r, intersect_y + y_offset).to_angle();
+        let full_angle = PI + 2. * angle_offset;
+        vec![
+            PerimeterSegment {
+                max_samples: None,
+                sampler: Box::new(move |t: f32| {
+                    let (sin, cos) = (full_angle * t - angle_offset).sin_cos();
+                    cos * r * local_x - (sin * semi_minor + y_offset) * local_y
+                }),
+            },
+            PerimeterSegment {
+                max_samples: Some(3),
+                sampler: Box::new(move |t: f32| {
+                    if t < 0.33 {
+                        intersect_x * local_x + intersect_y * local_y
+                    } else if t < 0.666 {
+                        y_offset * local_y
+                    } else {
+                        -intersect_x * local_x + intersect_y * local_y
+                    }
+                }),
+            },
+        ]
+    }
+}
 impl Projectable for ShapeProjection<Capsule3d> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         let r = self.primitive.radius;
@@ -170,7 +220,12 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos) {
                 t.translation.xy(),
                 RED.into(),
             ),
-            _ => todo!(),
+            3 => gizmos.projection(
+                ShapeProjection::new(Cone::default(), t.rotation),
+                t.translation.xy(),
+                MAGENTA.into(),
+            ),
+            _ => todo!()
         }
     }
 }
@@ -193,6 +248,7 @@ fn setup(
         meshes.add(Cylinder::default()),
         meshes.add(Capsule3d::default()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
+        meshes.add(Cone::default().mesh()),
     ];
 
     let num_shapes = shapes.len();
