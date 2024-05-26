@@ -4,18 +4,95 @@
 use std::f32::consts::{PI, TAU};
 
 use bevy::{
-    color::palettes::css::{BLUE, GREEN, MAGENTA, ORANGE, RED, WHITE},
+    color::palettes::css::{BLUE, GREEN, RED, WHITE},
     prelude::*,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .init_resource::<Axes>()
         .add_systems(Startup, setup)
         .add_systems(Update, (input, draw_gizmos))
         .run();
 }
 
+impl Projectable for ShapeProjection<Torus> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let minor_r = self.primitive.minor_radius;
+        let major_r = self.primitive.major_radius;
+        let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
+        let local_x = local_y.rotate(Vec2::NEG_Y);
+        let dir = self.rotation.conjugate() * Vec3::NEG_Z;
+        
+        let semi_minor = dir.y.abs() * major_r;
+        let mut segments = vec![
+            PerimeterSegment {
+                max_samples: None,
+                sampler: Box::new(move |t: f32| {
+                    let (sin, cos) = (TAU * t).sin_cos();
+                    let normal = Vec2::new(semi_minor * cos, major_r * sin).normalize() * minor_r;
+                    (cos * major_r + normal.x) * local_x - (sin * semi_minor + normal.y) * local_y
+                }),
+            },
+        ];
+
+        if semi_minor <= minor_r {
+            return segments;
+        }
+
+        segments.push(
+            PerimeterSegment {
+                max_samples: None,
+                sampler: Box::new(move |t: f32| {
+                    let (sin, cos) = (TAU * t).sin_cos();
+                    let normal = Vec2::new(semi_minor * cos, major_r * sin).normalize() * minor_r;
+                    (cos * major_r - normal.x) * local_x - (sin * semi_minor - normal.y) * local_y
+                }),
+            }
+        );
+        segments 
+    }
+}
+impl Projectable for ShapeProjection<Cuboid> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let mut points = [
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(-1.0, 1.0, 1.0),
+            Vec3::new(-1.0, -1.0, 1.0),
+            Vec3::new(1.0, -1.0, 1.0),
+            Vec3::new(1.0, 1.0, -1.0),
+            Vec3::new(-1.0, 1.0, -1.0),
+            Vec3::new(-1.0, -1.0, -1.0),
+            Vec3::new(1.0, -1.0, -1.0),
+        ].map(|p| (self.rotation * (p * self.primitive.half_size)).xy());
+        points.sort_by(|a, b| (&a.to_angle()).total_cmp(&b.to_angle()));
+        let mut final_positions = vec![];
+        for i in 0..points.len() {
+            let a = points[(i as i32 - 1).rem_euclid(points.len() as i32) as usize];
+            let b = points[(i).rem_euclid(points.len())];
+            let c = points[(i + 1).rem_euclid(points.len())];
+
+            let ac = c - a;
+            let n = Vec2::new(-ac.y, ac.x).normalize();
+            if (n * b).element_sum() - (n*a).element_sum() > 0. {
+                continue;
+            }
+            final_positions.push(b);
+        };
+        final_positions.push(final_positions[0]);
+
+        vec![
+            PerimeterSegment {
+                max_samples: Some(final_positions.len()),
+                sampler: Box::new(move |t: f32| {
+                    let i = (t * final_positions.len() as f32 - 0.001) as usize;
+                    final_positions[i]
+                }),
+            }
+        ]
+    }
+}
 impl Projectable for ShapeProjection<Tetrahedron> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         let mut points = self.primitive.vertices.map(|p| (self.rotation * p).xy());
@@ -207,10 +284,13 @@ impl Projectable for ShapeProjection<Sphere> {
 /// A marker component for our shapes so we can query them separately from the ground plane
 #[derive(Component)]
 struct Shape(usize);
+/// A marker component for our shapes so we can query them separately from the ground plane
+#[derive(Resource, Default)]
+struct Axes(bool);
 
 const X_EXTENT: f32 = 12.0;
 
-fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos) {
+fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos, axes: Res<Axes>) {
     let mut first = true;
     for (t, Shape(i)) in shapes.iter() {
         if first {
@@ -232,33 +312,48 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos) {
             );
             first = false;
         }
-
-        gizmos.axes(t.clone(), 1.);
+        
+        if axes.0 {
+            gizmos.axes(t.clone(), 1.);
+        }
+        
+        let num_shapes = 7;
+        let color = Color::hsl(360. * *i as f32 / num_shapes as f32, 0.95, 0.7);
         match *i {
             0 => gizmos.projection(
                 ShapeProjection::new(Cylinder::default(), t.rotation),
                 t.translation.xy(),
-                GREEN.into(),
+                color,
             ),
             1 => gizmos.projection(
                 ShapeProjection::new(Capsule3d::default(), t.rotation),
                 t.translation.xy(),
-                ORANGE.into(),
+                color,
             ),
             2 => gizmos.projection(
                 ShapeProjection::new(Sphere::default(), t.rotation),
                 t.translation.xy(),
-                RED.into(),
+                color,
             ),
             3 => gizmos.projection(
                 ShapeProjection::new(Cone::default(), t.rotation),
                 t.translation.xy(),
-                MAGENTA.into(),
+                color,
             ),
             4 => gizmos.projection(
                 ShapeProjection::new(Tetrahedron::default(), t.rotation),
                 t.translation.xy(),
-                BLUE.lighter(0.2).into(),
+                color,
+            ),
+            5 => gizmos.projection(
+                ShapeProjection::new(Cuboid::default(), t.rotation),
+                t.translation.xy(),
+                color,
+            ),
+            6 => gizmos.projection(
+                ShapeProjection::new(Torus::default(), t.rotation),
+                t.translation.xy(),
+                color,
             ),
             _ => todo!()
         }
@@ -285,6 +380,8 @@ fn setup(
         meshes.add(Sphere::default().mesh().uv(32, 18)),
         meshes.add(Cone::default().mesh()),
         meshes.add(Tetrahedron::default().mesh()),
+        meshes.add(Cuboid::default().mesh()),
+        meshes.add(Torus::default().mesh()),
     ];
 
     let num_shapes = shapes.len();
@@ -336,6 +433,7 @@ fn input(
     mut query: Query<(&mut Transform, &mut Visibility), With<Shape>>,
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
+    mut axes: ResMut<Axes>, 
 ) {
     let around_x = {
         let mut delta = 0.;
@@ -370,6 +468,8 @@ fn input(
 
     let reset = keys.just_pressed(KeyCode::KeyR);
     let toggle_visibility = keys.just_pressed(KeyCode::KeyV);
+
+    axes.0 ^= keys.just_pressed(KeyCode::KeyC);
 
     for (mut transform, mut visibility) in &mut query {
         if reset {
@@ -431,7 +531,7 @@ where
     Clear: 'static + Send + Sync,
 {
     fn projection(&mut self, projection: ShapeProjection<P>, position: Vec2, color: Color) {
-        const DEFAULT_SAMPLES: usize = 32;
+        const DEFAULT_SAMPLES: usize = 96;
 
         for segment in projection.perimeter() {
             let samples = segment.max_samples.unwrap_or(DEFAULT_SAMPLES);
