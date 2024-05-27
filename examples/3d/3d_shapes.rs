@@ -4,7 +4,7 @@
 use std::f32::consts::{PI, TAU};
 
 use bevy::{
-    color::palettes::css::{BLUE, GREEN, RED, WHITE},
+    color::palettes::css::{BLUE, GREEN, RED},
     prelude::*,
 };
 
@@ -27,7 +27,6 @@ impl Projectable for ShapeProjection<Torus> {
 
         let b = dir.y.abs() * a;
         let mut segments = vec![PerimeterSegment::Curve {
-            max_samples: None,
             sampler: Box::new(move |t: f32| {
                 if t < 0.0001 || t > 0.999 {
                     return local_y * -(b + m);
@@ -59,7 +58,6 @@ impl Projectable for ShapeProjection<Torus> {
             }
         };
         segments.push(PerimeterSegment::Curve {
-            max_samples: None,
             sampler: Box::new(move |t: f32| {
                 let phi = start_phi + (PI - 2. * start_phi) * t;
                 let (sin, cos) = phi.sin_cos();
@@ -69,7 +67,6 @@ impl Projectable for ShapeProjection<Torus> {
             }),
         });
         segments.push(PerimeterSegment::Curve {
-            max_samples: None,
             sampler: Box::new(move |t: f32| {
                 let phi = start_phi + (PI - 2. * start_phi) * t;
                 let (sin, cos) = phi.sin_cos();
@@ -142,13 +139,12 @@ impl Projectable for ShapeProjection<Tetrahedron> {
 impl Projectable for ShapeProjection<Cone> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         let r = self.primitive.radius;
-        let half_height = self.primitive.height / 2.;
         let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
         let local_x = local_y.rotate(Vec2::NEG_Y);
         let dir = self.rotation.conjugate() * Vec3::NEG_Z;
 
         let semi_minor = dir.y.abs() * r;
-        let y_offset = half_height * dir.xz().length();
+        let y_offset = self.primitive.height / 2. * dir.xz().length();
         let rotation = local_x.to_angle();
 
         if semi_minor > 2. * y_offset {
@@ -163,9 +159,9 @@ impl Projectable for ShapeProjection<Cone> {
 
         let intersect_x = r * (1. - (semi_minor / 2. / y_offset).powi(2)).sqrt();
         let intersect_y = semi_minor * (1. - (intersect_x / r).powi(2)).sqrt() - y_offset;
-        let angle_offset =
+        let intersect_angle =
             Vec2::new(semi_minor * intersect_x / r, intersect_y + y_offset).to_angle();
-        let full_angle = PI + 2. * angle_offset;
+        let full_angle = PI + 2. * intersect_angle;
         vec![
             PerimeterSegment::LineStrip {
                 points: vec![
@@ -178,7 +174,7 @@ impl Projectable for ShapeProjection<Cone> {
                 center: -y_offset * local_y,
                 half_size: Vec2::new(r, semi_minor),
                 rotation: rotation + PI,
-                start_angle: -angle_offset,
+                start_angle: -intersect_angle,
                 angle: full_angle,
             },
         ]
@@ -187,12 +183,11 @@ impl Projectable for ShapeProjection<Cone> {
 impl Projectable for ShapeProjection<Capsule3d> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         let r = self.primitive.radius;
-        let half_height = self.primitive.half_length;
         let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
         let local_x = local_y.rotate(Vec2::NEG_Y);
         let dir = self.rotation.conjugate() * Vec3::NEG_Z;
 
-        let y_offset = half_height * dir.xz().length();
+        let y_offset = self.primitive.half_length * dir.xz().length();
         let rotation = local_x.to_angle();
         vec![
             PerimeterSegment::EllipticArc {
@@ -227,13 +222,12 @@ impl Projectable for ShapeProjection<Capsule3d> {
 impl Projectable for ShapeProjection<Cylinder> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         let r = self.primitive.radius;
-        let half_height = self.primitive.half_height;
         let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
         let local_x = local_y.rotate(Vec2::NEG_Y);
         let dir = self.rotation.conjugate() * Vec3::NEG_Z;
 
         let semi_minor = dir.y.abs() * r;
-        let y_offset = half_height * dir.xz().length();
+        let y_offset = self.primitive.half_height * dir.xz().length();
         let rotation = local_x.to_angle();
         vec![
             PerimeterSegment::EllipticArc {
@@ -365,11 +359,6 @@ fn setup(
     let (config, _) = gizmo_config.config_mut::<DefaultGizmoConfigGroup>();
     config.depth_bias = -1.;
 
-    let debug_material = materials.add(StandardMaterial {
-        base_color: WHITE.into(),
-        ..default()
-    });
-
     let shapes = [
         meshes.add(Cylinder::default()),
         meshes.add(Capsule3d::default()),
@@ -378,6 +367,7 @@ fn setup(
         meshes.add(Tetrahedron::default().mesh()),
         meshes.add(Cuboid::default().mesh()),
         meshes.add(Torus::default().mesh()),
+        meshes.add(ConicalFrustum::default().mesh()),
     ];
 
     let num_shapes = shapes.len();
@@ -388,10 +378,15 @@ fn setup(
         } else {
             0.
         };
+        let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
+        let mat = materials.add(StandardMaterial {
+            base_color: color,
+            ..default()
+        });
         commands.spawn((
             PbrBundle {
                 mesh: shape,
-                material: debug_material.clone(),
+                material: mat,
                 transform: Transform::from_xyz(x, 0.0, 0.0)
                     .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 ..default()
@@ -488,7 +483,6 @@ fn input(
 
 enum PerimeterSegment {
     Curve {
-        max_samples: Option<usize>,
         sampler: Box<dyn Fn(f32) -> Vec2>,
     },
     EllipticArc {
@@ -543,14 +537,10 @@ where
 
         for segment in projection.perimeter() {
             match segment {
-                PerimeterSegment::Curve {
-                    max_samples,
-                    sampler,
-                } => {
-                    let samples = max_samples.unwrap_or(DEFAULT_SAMPLES);
+                PerimeterSegment::Curve { sampler } => {
                     let mut linestrip = vec![];
-                    for i in 0..samples {
-                        let t = i as f32 / (samples as f32 - 1.);
+                    for i in 0..DEFAULT_SAMPLES {
+                        let t = i as f32 / (DEFAULT_SAMPLES as f32 - 1.);
                         linestrip.push(sampler(t) + position);
                     }
 
