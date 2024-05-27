@@ -8,6 +8,12 @@ use bevy::{
     prelude::*,
 };
 
+const CONICAL_FRUSTUM: ConicalFrustum = ConicalFrustum {
+    height: 0.5,
+    radius_top: 0.25,
+    radius_bottom: 0.5,
+};
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
@@ -19,9 +25,18 @@ fn main() {
 
 impl Projectable for ShapeProjection<ConicalFrustum> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
-        let r_bottom = self.primitive.radius_bottom;
-        let r_top = self.primitive.radius_top;
-        let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
+        let (r_bottom, r_top, local_y) = if self.primitive.radius_bottom > self.primitive.radius_top
+        {
+            let r_bottom = self.primitive.radius_bottom;
+            let r_top = self.primitive.radius_top;
+            let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
+            (r_bottom, r_top, local_y)
+        } else {
+            let r_bottom = self.primitive.radius_top;
+            let r_top = self.primitive.radius_bottom;
+            let local_y = -(self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
+            (r_bottom, r_top, local_y)
+        };
         let local_x = local_y.rotate(Vec2::NEG_Y);
         let dir = self.rotation.conjugate() * Vec3::NEG_Z;
 
@@ -408,7 +423,7 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos, axes: Re
                 color,
             ),
             7 => gizmos.projection(
-                ShapeProjection::new(ConicalFrustum::default(), t.rotation),
+                ShapeProjection::new(CONICAL_FRUSTUM, t.rotation),
                 t.translation.xy(),
                 color,
             ),
@@ -434,7 +449,7 @@ fn setup(
         meshes.add(Tetrahedron::default().mesh()),
         meshes.add(Cuboid::default().mesh()),
         meshes.add(Torus::default().mesh()),
-        meshes.add(ConicalFrustum::default().mesh()),
+        meshes.add(CONICAL_FRUSTUM.mesh()),
     ];
 
     let num_shapes = shapes.len();
