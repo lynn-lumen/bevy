@@ -19,39 +19,66 @@ fn main() {
 
 impl Projectable for ShapeProjection<Torus> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
-        let minor_r = self.primitive.minor_radius;
-        let major_r = self.primitive.major_radius;
+        let m = self.primitive.minor_radius;
+        let a = self.primitive.major_radius;
         let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
         let local_x = local_y.rotate(Vec2::NEG_Y);
         let dir = self.rotation.conjugate() * Vec3::NEG_Z;
-        
-        let semi_minor = dir.y.abs() * major_r;
-        let mut segments = vec![
-            PerimeterSegment {
-                max_samples: None,
-                sampler: Box::new(move |t: f32| {
-                    let (sin, cos) = (TAU * t).sin_cos();
-                    let normal = Vec2::new(semi_minor * cos, major_r * sin).normalize() * minor_r;
-                    (cos * major_r + normal.x) * local_x - (sin * semi_minor + normal.y) * local_y
-                }),
-            },
-        ];
 
-        if semi_minor <= minor_r {
+        let b = dir.y.abs() * a;
+        let mut segments = vec![PerimeterSegment {
+            max_samples: None,
+            sampler: Box::new(move |t: f32| {
+                if t < 0.0001 || t > 0.999 {
+                    return local_y * -(b + m);
+                }
+
+                let nphi = (t - 0.25) * TAU;
+                let phi = (nphi.tan() * b / a).atan() + if t > 0.5 { PI } else { 0. };
+
+                let (sin, cos) = phi.sin_cos();
+                let p = Vec2::new(a * cos, b * sin);
+                let (sin, cos) = nphi.sin_cos();
+                let n = Vec2::new(cos, sin) * m;
+
+                let p = n + p;
+                local_x * p.x + local_y * p.y
+            }),
+        }];
+
+        if b <= m {
             return segments;
         }
 
-        segments.push(
-            PerimeterSegment {
-                max_samples: None,
-                sampler: Box::new(move |t: f32| {
-                    let (sin, cos) = (TAU * t).sin_cos();
-                    let normal = Vec2::new(semi_minor * cos, major_r * sin).normalize() * minor_r;
-                    (cos * major_r - normal.x) * local_x - (sin * semi_minor - normal.y) * local_y
-                }),
+        let start_phi = {
+            let phi = ((b * b - m * m).sqrt() / (a * a - b * b).sqrt() * a / b).acos();
+            if phi.is_nan() {
+                0.
+            } else {
+                phi
             }
-        );
-        segments 
+        };
+        segments.push(PerimeterSegment {
+            max_samples: None,
+            sampler: Box::new(move |t: f32| {
+                let phi = start_phi + (PI - 2. * start_phi) * t;
+                let (sin, cos) = phi.sin_cos();
+                let p = Vec2::new(a * cos, b * sin);
+                let n = m * Vec2::new(b * cos, a * sin).normalize();
+                (p - n).x * local_x + (p - n).y * local_y
+            }),
+        });
+        segments.push(PerimeterSegment {
+            max_samples: None,
+            sampler: Box::new(move |t: f32| {
+                let phi = start_phi + (PI - 2. * start_phi) * t;
+                let (sin, cos) = phi.sin_cos();
+                let p = Vec2::new(a * cos, b * sin);
+                let n = m * Vec2::new(b * cos, a * sin).normalize();
+                (p - n).x * local_x - (p - n).y * local_y
+            }),
+        });
+        segments
     }
 }
 impl Projectable for ShapeProjection<Cuboid> {
@@ -65,7 +92,8 @@ impl Projectable for ShapeProjection<Cuboid> {
             Vec3::new(-1.0, 1.0, -1.0),
             Vec3::new(-1.0, -1.0, -1.0),
             Vec3::new(1.0, -1.0, -1.0),
-        ].map(|p| (self.rotation * (p * self.primitive.half_size)).xy());
+        ]
+        .map(|p| (self.rotation * (p * self.primitive.half_size)).xy());
         points.sort_by(|a, b| (&a.to_angle()).total_cmp(&b.to_angle()));
         let mut final_positions = vec![];
         for i in 0..points.len() {
@@ -75,22 +103,20 @@ impl Projectable for ShapeProjection<Cuboid> {
 
             let ac = c - a;
             let n = Vec2::new(-ac.y, ac.x).normalize();
-            if (n * b).element_sum() - (n*a).element_sum() > 0. {
+            if (n * b).element_sum() - (n * a).element_sum() > 0. {
                 continue;
             }
             final_positions.push(b);
-        };
+        }
         final_positions.push(final_positions[0]);
 
-        vec![
-            PerimeterSegment {
-                max_samples: Some(final_positions.len()),
-                sampler: Box::new(move |t: f32| {
-                    let i = (t * final_positions.len() as f32 - 0.001) as usize;
-                    final_positions[i]
-                }),
-            }
-        ]
+        vec![PerimeterSegment {
+            max_samples: Some(final_positions.len()),
+            sampler: Box::new(move |t: f32| {
+                let i = (t * final_positions.len() as f32 - 0.001) as usize;
+                final_positions[i]
+            }),
+        }]
     }
 }
 impl Projectable for ShapeProjection<Tetrahedron> {
@@ -105,22 +131,20 @@ impl Projectable for ShapeProjection<Tetrahedron> {
 
             let ac = c - a;
             let n = Vec2::new(-ac.y, ac.x).normalize();
-            if (n * b).element_sum() - (n*a).element_sum() > 0. {
+            if (n * b).element_sum() - (n * a).element_sum() > 0. {
                 continue;
             }
             final_positions.push(b);
-        };
+        }
         final_positions.push(final_positions[0]);
 
-        vec![
-            PerimeterSegment {
-                max_samples: Some(final_positions.len()),
-                sampler: Box::new(move |t: f32| {
-                    let i = (t * final_positions.len() as f32 - 0.001) as usize;
-                    final_positions[i]
-                }),
-            }
-        ]
+        vec![PerimeterSegment {
+            max_samples: Some(final_positions.len()),
+            sampler: Box::new(move |t: f32| {
+                let i = (t * final_positions.len() as f32 - 0.001) as usize;
+                final_positions[i]
+            }),
+        }]
     }
 }
 impl Projectable for ShapeProjection<Cone> {
@@ -130,25 +154,24 @@ impl Projectable for ShapeProjection<Cone> {
         let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
         let local_x = local_y.rotate(Vec2::NEG_Y);
         let dir = self.rotation.conjugate() * Vec3::NEG_Z;
-        
+
         let semi_minor = dir.y.abs() * r;
         let y_offset = half_height * dir.xz().length();
 
         if semi_minor > 2. * y_offset {
-            return vec![
-                PerimeterSegment {
-                    max_samples: None,
-                    sampler: Box::new(move |t: f32| {
-                        let (sin, cos) = (TAU * t).sin_cos();
-                        cos * r * local_x - (sin * semi_minor + y_offset) * local_y
-                    }),
-                }
-            ]
+            return vec![PerimeterSegment {
+                max_samples: None,
+                sampler: Box::new(move |t: f32| {
+                    let (sin, cos) = (TAU * t).sin_cos();
+                    cos * r * local_x - (sin * semi_minor + y_offset) * local_y
+                }),
+            }];
         }
 
         let intersect_x = r * (1. - (semi_minor / 2. / y_offset).powi(2)).sqrt();
         let intersect_y = semi_minor * (1. - (intersect_x / r).powi(2)).sqrt() - y_offset;
-        let angle_offset = Vec2::new(semi_minor * intersect_x / r, intersect_y + y_offset).to_angle();
+        let angle_offset =
+            Vec2::new(semi_minor * intersect_x / r, intersect_y + y_offset).to_angle();
         let full_angle = PI + 2. * angle_offset;
         vec![
             PerimeterSegment {
@@ -312,11 +335,11 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos, axes: Re
             );
             first = false;
         }
-        
+
         if axes.0 {
             gizmos.axes(t.clone(), 1.);
         }
-        
+
         let num_shapes = 7;
         let color = Color::hsl(360. * *i as f32 / num_shapes as f32, 0.95, 0.7);
         match *i {
@@ -355,7 +378,7 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos, axes: Re
                 t.translation.xy(),
                 color,
             ),
-            _ => todo!()
+            _ => todo!(),
         }
     }
 }
@@ -433,7 +456,7 @@ fn input(
     mut query: Query<(&mut Transform, &mut Visibility), With<Shape>>,
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut axes: ResMut<Axes>, 
+    mut axes: ResMut<Axes>,
 ) {
     let around_x = {
         let mut delta = 0.;
@@ -531,7 +554,7 @@ where
     Clear: 'static + Send + Sync,
 {
     fn projection(&mut self, projection: ShapeProjection<P>, position: Vec2, color: Color) {
-        const DEFAULT_SAMPLES: usize = 96;
+        const DEFAULT_SAMPLES: usize = 64;
 
         for segment in projection.perimeter() {
             let samples = segment.max_samples.unwrap_or(DEFAULT_SAMPLES);
