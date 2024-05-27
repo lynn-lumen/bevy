@@ -41,25 +41,40 @@ impl Projectable for ShapeProjection<ConicalFrustum> {
         }
 
         let cone_height = self.primitive.height / (1. - r_top / r_bottom) * dir.xz().length();
-        let intersect_x = r_bottom * (1. - (b_bottom / cone_height).powi(2)).sqrt();
-        let intersect_y = b_bottom * (1. - (intersect_x / r_bottom).powi(2)).sqrt() - y_offset;
-        let intersect_angle =
-            Vec2::new(b_bottom * intersect_x / r_bottom, intersect_y + y_offset).to_angle();
-        let full_angle = PI + 2. * intersect_angle;
+        let bottom_x = r_bottom * (1. - (b_bottom / cone_height).powi(2)).sqrt();
+        let bottom_y = b_bottom * (1. - (bottom_x / r_bottom).powi(2)).sqrt() - y_offset;
+        let bottom_angle =
+            Vec2::new(b_bottom * bottom_x / r_bottom, bottom_y + y_offset).to_angle();
+
+        let top_x = r_top * (1. - (b_top / (cone_height - 2. * y_offset)).powi(2)).sqrt();
+        let top_y = b_top * (1. - (top_x / r_top).powi(2)).sqrt() + y_offset;
+        let top_angle = Vec2::new(b_top * top_x / r_top, top_y - y_offset).to_angle();
         vec![
             PerimeterSegment::LineStrip {
                 points: vec![
-                    intersect_x * local_x + intersect_y * local_y,
-                    (cone_height - y_offset) * local_y,
-                    -intersect_x * local_x + intersect_y * local_y,
+                    bottom_x * local_x + bottom_y * local_y,
+                    top_x * local_x + top_y * local_y,
+                ],
+            },
+            PerimeterSegment::LineStrip {
+                points: vec![
+                    -bottom_x * local_x + bottom_y * local_y,
+                    -top_x * local_x + top_y * local_y,
                 ],
             },
             PerimeterSegment::EllipticArc {
                 center: -y_offset * local_y,
                 half_size: Vec2::new(r_bottom, b_bottom),
                 rotation: rotation + PI,
-                start_angle: -intersect_angle,
-                angle: full_angle,
+                start_angle: -bottom_angle,
+                angle: PI + 2. * bottom_angle,
+            },
+            PerimeterSegment::EllipticArc {
+                center: y_offset * local_y,
+                half_size: Vec2::new(r_top, b_top),
+                rotation,
+                start_angle: top_angle,
+                angle: PI - 2. * top_angle,
             },
         ]
     }
