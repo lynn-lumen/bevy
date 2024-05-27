@@ -40,7 +40,8 @@ impl Projectable for ShapeProjection<ConicalFrustum> {
             }];
         }
 
-        let intersect_x = r_bottom * (1. - (b_bottom / 2. / y_offset).powi(2)).sqrt();
+        let cone_height = self.primitive.height / (1. - r_top / r_bottom) * dir.xz().length();
+        let intersect_x = r_bottom * (1. - (b_bottom / cone_height).powi(2)).sqrt();
         let intersect_y = b_bottom * (1. - (intersect_x / r_bottom).powi(2)).sqrt() - y_offset;
         let intersect_angle =
             Vec2::new(b_bottom * intersect_x / r_bottom, intersect_y + y_offset).to_angle();
@@ -49,7 +50,7 @@ impl Projectable for ShapeProjection<ConicalFrustum> {
             PerimeterSegment::LineStrip {
                 points: vec![
                     intersect_x * local_x + intersect_y * local_y,
-                    y_offset * local_y,
+                    (cone_height - y_offset) * local_y,
                     -intersect_x * local_x + intersect_y * local_y,
                 ],
             },
