@@ -26,7 +26,7 @@ impl Projectable for ShapeProjection<Torus> {
         let dir = self.rotation.conjugate() * Vec3::NEG_Z;
 
         let b = dir.y.abs() * a;
-        let mut segments = vec![PerimeterSegment {
+        let mut segments = vec![PerimeterSegment::Curve {
             max_samples: None,
             sampler: Box::new(move |t: f32| {
                 if t < 0.0001 || t > 0.999 {
@@ -58,7 +58,7 @@ impl Projectable for ShapeProjection<Torus> {
                 phi
             }
         };
-        segments.push(PerimeterSegment {
+        segments.push(PerimeterSegment::Curve {
             max_samples: None,
             sampler: Box::new(move |t: f32| {
                 let phi = start_phi + (PI - 2. * start_phi) * t;
@@ -68,7 +68,7 @@ impl Projectable for ShapeProjection<Torus> {
                 (p - n).x * local_x + (p - n).y * local_y
             }),
         });
-        segments.push(PerimeterSegment {
+        segments.push(PerimeterSegment::Curve {
             max_samples: None,
             sampler: Box::new(move |t: f32| {
                 let phi = start_phi + (PI - 2. * start_phi) * t;
@@ -110,12 +110,8 @@ impl Projectable for ShapeProjection<Cuboid> {
         }
         final_positions.push(final_positions[0]);
 
-        vec![PerimeterSegment {
-            max_samples: Some(final_positions.len()),
-            sampler: Box::new(move |t: f32| {
-                let i = (t * final_positions.len() as f32 - 0.001) as usize;
-                final_positions[i]
-            }),
+        vec![PerimeterSegment::LineStrip {
+            points: final_positions,
         }]
     }
 }
@@ -138,12 +134,8 @@ impl Projectable for ShapeProjection<Tetrahedron> {
         }
         final_positions.push(final_positions[0]);
 
-        vec![PerimeterSegment {
-            max_samples: Some(final_positions.len()),
-            sampler: Box::new(move |t: f32| {
-                let i = (t * final_positions.len() as f32 - 0.001) as usize;
-                final_positions[i]
-            }),
+        vec![PerimeterSegment::LineStrip {
+            points: final_positions,
         }]
     }
 }
@@ -157,14 +149,15 @@ impl Projectable for ShapeProjection<Cone> {
 
         let semi_minor = dir.y.abs() * r;
         let y_offset = half_height * dir.xz().length();
+        let rotation = local_x.to_angle();
 
         if semi_minor > 2. * y_offset {
-            return vec![PerimeterSegment {
-                max_samples: None,
-                sampler: Box::new(move |t: f32| {
-                    let (sin, cos) = (TAU * t).sin_cos();
-                    cos * r * local_x - (sin * semi_minor + y_offset) * local_y
-                }),
+            return vec![PerimeterSegment::EllipticArc {
+                center: -y_offset * local_y,
+                half_size: Vec2::new(r, semi_minor),
+                rotation,
+                start_angle: 0.,
+                angle: TAU,
             }];
         }
 
@@ -174,24 +167,19 @@ impl Projectable for ShapeProjection<Cone> {
             Vec2::new(semi_minor * intersect_x / r, intersect_y + y_offset).to_angle();
         let full_angle = PI + 2. * angle_offset;
         vec![
-            PerimeterSegment {
-                max_samples: None,
-                sampler: Box::new(move |t: f32| {
-                    let (sin, cos) = (full_angle * t - angle_offset).sin_cos();
-                    cos * r * local_x - (sin * semi_minor + y_offset) * local_y
-                }),
+            PerimeterSegment::LineStrip {
+                points: vec![
+                    intersect_x * local_x + intersect_y * local_y,
+                    y_offset * local_y,
+                    -intersect_x * local_x + intersect_y * local_y,
+                ],
             },
-            PerimeterSegment {
-                max_samples: Some(3),
-                sampler: Box::new(move |t: f32| {
-                    if t < 0.33 {
-                        intersect_x * local_x + intersect_y * local_y
-                    } else if t < 0.666 {
-                        y_offset * local_y
-                    } else {
-                        -intersect_x * local_x + intersect_y * local_y
-                    }
-                }),
+            PerimeterSegment::EllipticArc {
+                center: -y_offset * local_y,
+                half_size: Vec2::new(r, semi_minor),
+                rotation: rotation + PI,
+                start_angle: -angle_offset,
+                angle: full_angle,
             },
         ]
     }
@@ -205,40 +193,33 @@ impl Projectable for ShapeProjection<Capsule3d> {
         let dir = self.rotation.conjugate() * Vec3::NEG_Z;
 
         let y_offset = half_height * dir.xz().length();
+        let rotation = local_x.to_angle();
         vec![
-            PerimeterSegment {
-                max_samples: None,
-                sampler: Box::new(move |t: f32| {
-                    let (sin, cos) = (PI * t).sin_cos();
-                    cos * r * local_x + (sin * r + y_offset) * local_y
-                }),
+            PerimeterSegment::EllipticArc {
+                center: y_offset * local_y,
+                half_size: Vec2::splat(r),
+                rotation,
+                start_angle: 0.,
+                angle: PI,
             },
-            PerimeterSegment {
-                max_samples: None,
-                sampler: Box::new(move |t: f32| {
-                    let (sin, cos) = (PI * t).sin_cos();
-                    cos * r * local_x - (sin * r + y_offset) * local_y
-                }),
+            PerimeterSegment::EllipticArc {
+                center: -y_offset * local_y,
+                half_size: Vec2::splat(r),
+                rotation,
+                start_angle: 0.,
+                angle: -PI,
             },
-            PerimeterSegment {
-                max_samples: Some(2),
-                sampler: Box::new(move |t: f32| {
-                    if t < 0.5 {
-                        r * local_x + y_offset * local_y
-                    } else {
-                        r * local_x - y_offset * local_y
-                    }
-                }),
+            PerimeterSegment::LineStrip {
+                points: vec![
+                    r * local_x + y_offset * local_y,
+                    r * local_x - y_offset * local_y,
+                ],
             },
-            PerimeterSegment {
-                max_samples: Some(2),
-                sampler: Box::new(move |t: f32| {
-                    if t < 0.5 {
-                        -r * local_x + y_offset * local_y
-                    } else {
-                        -r * local_x - y_offset * local_y
-                    }
-                }),
+            PerimeterSegment::LineStrip {
+                points: vec![
+                    -r * local_x + y_offset * local_y,
+                    -r * local_x - y_offset * local_y,
+                ],
             },
         ]
     }
@@ -253,53 +234,45 @@ impl Projectable for ShapeProjection<Cylinder> {
 
         let semi_minor = dir.y.abs() * r;
         let y_offset = half_height * dir.xz().length();
+        let rotation = local_x.to_angle();
         vec![
-            PerimeterSegment {
-                max_samples: None,
-                sampler: Box::new(move |t: f32| {
-                    let (sin, cos) = (PI * t).sin_cos();
-                    cos * r * local_x + (sin * semi_minor + y_offset) * local_y
-                }),
+            PerimeterSegment::EllipticArc {
+                center: y_offset * local_y,
+                half_size: Vec2::new(r, semi_minor),
+                rotation,
+                start_angle: 0.,
+                angle: PI,
             },
-            PerimeterSegment {
-                max_samples: None,
-                sampler: Box::new(move |t: f32| {
-                    let (sin, cos) = (PI * t).sin_cos();
-                    cos * r * local_x - (sin * semi_minor + y_offset) * local_y
-                }),
+            PerimeterSegment::EllipticArc {
+                center: -y_offset * local_y,
+                half_size: Vec2::new(r, semi_minor),
+                rotation,
+                start_angle: 0.,
+                angle: -PI,
             },
-            PerimeterSegment {
-                max_samples: Some(2),
-                sampler: Box::new(move |t: f32| {
-                    if t < 0.5 {
-                        r * local_x + y_offset * local_y
-                    } else {
-                        r * local_x - y_offset * local_y
-                    }
-                }),
+            PerimeterSegment::LineStrip {
+                points: vec![
+                    r * local_x + y_offset * local_y,
+                    r * local_x - y_offset * local_y,
+                ],
             },
-            PerimeterSegment {
-                max_samples: Some(2),
-                sampler: Box::new(move |t: f32| {
-                    if t < 0.5 {
-                        -r * local_x + y_offset * local_y
-                    } else {
-                        -r * local_x - y_offset * local_y
-                    }
-                }),
+            PerimeterSegment::LineStrip {
+                points: vec![
+                    -r * local_x + y_offset * local_y,
+                    -r * local_x - y_offset * local_y,
+                ],
             },
         ]
     }
 }
 impl Projectable for ShapeProjection<Sphere> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
-        let r = self.primitive.radius;
-        vec![PerimeterSegment {
-            max_samples: None,
-            sampler: Box::new(move |t: f32| {
-                let (sin, cos) = (TAU * t).sin_cos();
-                Vec2::new(cos, sin) * r
-            }),
+        vec![PerimeterSegment::EllipticArc {
+            center: Vec2::ZERO,
+            half_size: Vec2::splat(self.primitive.radius),
+            rotation: 0.,
+            start_angle: 0.,
+            angle: TAU,
         }]
     }
 }
@@ -513,9 +486,21 @@ fn input(
     }
 }
 
-struct PerimeterSegment {
-    max_samples: Option<usize>,
-    sampler: Box<dyn Fn(f32) -> Vec2>,
+enum PerimeterSegment {
+    Curve {
+        max_samples: Option<usize>,
+        sampler: Box<dyn Fn(f32) -> Vec2>,
+    },
+    EllipticArc {
+        center: Vec2,
+        half_size: Vec2,
+        rotation: f32,
+        start_angle: f32,
+        angle: f32,
+    },
+    LineStrip {
+        points: Vec<Vec2>,
+    },
 }
 
 trait Projectable {
@@ -557,14 +542,45 @@ where
         const DEFAULT_SAMPLES: usize = 64;
 
         for segment in projection.perimeter() {
-            let samples = segment.max_samples.unwrap_or(DEFAULT_SAMPLES);
-            let mut linestrip = vec![];
-            for i in 0..samples {
-                let t = i as f32 / (samples as f32 - 1.);
-                linestrip.push((segment.sampler)(t) + position);
-            }
+            match segment {
+                PerimeterSegment::Curve {
+                    max_samples,
+                    sampler,
+                } => {
+                    let samples = max_samples.unwrap_or(DEFAULT_SAMPLES);
+                    let mut linestrip = vec![];
+                    for i in 0..samples {
+                        let t = i as f32 / (samples as f32 - 1.);
+                        linestrip.push(sampler(t) + position);
+                    }
 
-            self.linestrip_2d(linestrip, color);
+                    self.linestrip_2d(linestrip, color);
+                }
+                PerimeterSegment::EllipticArc {
+                    center,
+                    half_size,
+                    rotation,
+                    start_angle,
+                    angle,
+                } => {
+                    let rotation = Vec2::from_angle(rotation);
+                    let mut linestrip = vec![];
+
+                    for i in 0..DEFAULT_SAMPLES {
+                        let t = i as f32 / (DEFAULT_SAMPLES as f32 - 1.);
+                        let phi = t * angle + start_angle;
+
+                        let p = Vec2::from_angle(phi) * half_size;
+                        let p = p.rotate(rotation);
+                        linestrip.push(p + center + position);
+                    }
+
+                    self.linestrip_2d(linestrip, color);
+                }
+                PerimeterSegment::LineStrip { points } => {
+                    self.linestrip_2d(points.into_iter().map(|p| p + position), color);
+                }
+            }
         }
     }
 }
