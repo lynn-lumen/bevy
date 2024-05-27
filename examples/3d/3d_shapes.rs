@@ -17,6 +17,52 @@ fn main() {
         .run();
 }
 
+impl Projectable for ShapeProjection<ConicalFrustum> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let r_bottom = self.primitive.radius_bottom;
+        let r_top = self.primitive.radius_top;
+        let local_y = (self.rotation * Vec3::Y).xy().normalize_or(Vec2::Y);
+        let local_x = local_y.rotate(Vec2::NEG_Y);
+        let dir = self.rotation.conjugate() * Vec3::NEG_Z;
+
+        let b_bottom = dir.y.abs() * r_bottom;
+        let b_top = dir.y.abs() * r_top;
+        let y_offset = self.primitive.height / 2. * dir.xz().length();
+        let rotation = local_x.to_angle();
+
+        if b_bottom > 2. * y_offset + b_top {
+            return vec![PerimeterSegment::EllipticArc {
+                center: -y_offset * local_y,
+                half_size: Vec2::new(r_bottom, b_bottom),
+                rotation,
+                start_angle: 0.,
+                angle: TAU,
+            }];
+        }
+
+        let intersect_x = r_bottom * (1. - (b_bottom / 2. / y_offset).powi(2)).sqrt();
+        let intersect_y = b_bottom * (1. - (intersect_x / r_bottom).powi(2)).sqrt() - y_offset;
+        let intersect_angle =
+            Vec2::new(b_bottom * intersect_x / r_bottom, intersect_y + y_offset).to_angle();
+        let full_angle = PI + 2. * intersect_angle;
+        vec![
+            PerimeterSegment::LineStrip {
+                points: vec![
+                    intersect_x * local_x + intersect_y * local_y,
+                    y_offset * local_y,
+                    -intersect_x * local_x + intersect_y * local_y,
+                ],
+            },
+            PerimeterSegment::EllipticArc {
+                center: -y_offset * local_y,
+                half_size: Vec2::new(r_bottom, b_bottom),
+                rotation: rotation + PI,
+                start_angle: -intersect_angle,
+                angle: full_angle,
+            },
+        ]
+    }
+}
 impl Projectable for ShapeProjection<Torus> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         let m = self.primitive.minor_radius;
@@ -307,7 +353,7 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos, axes: Re
             gizmos.axes(t.clone(), 1.);
         }
 
-        let num_shapes = 7;
+        let num_shapes = 8;
         let color = Color::hsl(360. * *i as f32 / num_shapes as f32, 0.95, 0.7);
         match *i {
             0 => gizmos.projection(
@@ -342,6 +388,11 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos, axes: Re
             ),
             6 => gizmos.projection(
                 ShapeProjection::new(Torus::default(), t.rotation),
+                t.translation.xy(),
+                color,
+            ),
+            7 => gizmos.projection(
+                ShapeProjection::new(ConicalFrustum::default(), t.rotation),
                 t.translation.xy(),
                 color,
             ),
