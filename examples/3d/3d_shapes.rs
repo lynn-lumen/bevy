@@ -22,7 +22,14 @@ fn main() {
         .add_systems(Update, (input, draw_gizmos))
         .run();
 }
-
+impl Projectable for ShapeProjection<Triangle3d> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let points = self.primitive.vertices.map(|p| (self.rotation * p).xy());
+        vec![PerimeterSegment::LineStrip {
+            points: points.into_iter().chain([points[0]]).collect(),
+        }]
+    }
+}
 impl Projectable for ShapeProjection<ConicalFrustum> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         let (r_bottom, r_top, local_y) = if self.primitive.radius_bottom > self.primitive.radius_top
@@ -381,10 +388,10 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos, axes: Re
         }
 
         if axes.0 {
-            gizmos.axes(t.clone(), 1.);
+            gizmos.axes(*t, 1.);
         }
 
-        let num_shapes = 8;
+        let num_shapes = 9;
         let color = Color::hsl(360. * *i as f32 / num_shapes as f32, 0.95, 0.7);
         match *i {
             0 => gizmos.projection(
@@ -427,6 +434,11 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos, axes: Re
                 t.translation.xy(),
                 color,
             ),
+            8 => gizmos.projection(
+                ShapeProjection::new(Triangle3d::default(), t.rotation),
+                t.translation.xy(),
+                color,
+            ),
             _ => todo!(),
         }
     }
@@ -450,6 +462,7 @@ fn setup(
         meshes.add(Cuboid::default().mesh()),
         meshes.add(Torus::default().mesh()),
         meshes.add(CONICAL_FRUSTUM.mesh()),
+        meshes.add(Triangle3d::default()),
     ];
 
     let num_shapes = shapes.len();
