@@ -456,24 +456,32 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
             gizmos.primitive_2d(&CIRCLE, POSITION, angle, color);
         }
         PrimitiveSelected::Ellipse => drop(gizmos.primitive_2d(&ELLIPSE, POSITION, angle, color)),
-        PrimitiveSelected::Triangle => gizmos.primitive_2d(&TRIANGLE_2D, POSITION, angle, color),
-        PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, POSITION, angle, color),
+        PrimitiveSelected::Triangle => {
+            gizmos.primitive_2d(&TRIANGLE_2D, POSITION, angle, color);
+        }
+        PrimitiveSelected::Plane => drop(gizmos.primitive_2d(&PLANE_2D, POSITION, angle, color)),
         PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE2D, POSITION, angle, color)),
         PrimitiveSelected::Segment => {
-            drop(gizmos.primitive_2d(&SEGMENT_2D, POSITION, angle, color));
+            gizmos.primitive_2d(&SEGMENT_2D, POSITION, angle, color);
         }
-        PrimitiveSelected::Polyline => gizmos.primitive_2d(&POLYLINE_2D, POSITION, angle, color),
-        PrimitiveSelected::Polygon => gizmos.primitive_2d(&POLYGON_2D, POSITION, angle, color),
+        PrimitiveSelected::Polyline => {
+            gizmos.primitive_2d(&POLYLINE_2D, POSITION, angle, color);
+        }
+        PrimitiveSelected::Polygon => {
+            gizmos.primitive_2d(&POLYGON_2D, POSITION, angle, color);
+        }
         PrimitiveSelected::RegularPolygon => {
             gizmos.primitive_2d(&REGULAR_POLYGON, POSITION, angle, color);
         }
-        PrimitiveSelected::Capsule => gizmos.primitive_2d(&CAPSULE_2D, POSITION, angle, color),
+        PrimitiveSelected::Capsule => {
+            gizmos.primitive_2d(&CAPSULE_2D, POSITION, angle, color);
+        }
         PrimitiveSelected::Cylinder => {}
         PrimitiveSelected::Cone => {}
         PrimitiveSelected::ConicalFrustum => {}
         PrimitiveSelected::Torus => drop(gizmos.primitive_2d(&ANNULUS, POSITION, angle, color)),
         PrimitiveSelected::Tetrahedron => {}
-        PrimitiveSelected::Arc => gizmos.primitive_2d(&ARC, POSITION, angle, color),
+        PrimitiveSelected::Arc => drop(gizmos.primitive_2d(&ARC, POSITION, angle, color)),
         PrimitiveSelected::CircularSector => {
             gizmos.primitive_2d(&CIRCULAR_SECTOR, POSITION, angle, color);
         }

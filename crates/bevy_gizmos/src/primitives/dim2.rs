@@ -17,14 +17,15 @@ use crate::prelude::{GizmoConfigGroup, Gizmos};
 
 // some magic number since using directions as offsets will result in lines of length 1 pixel
 const MIN_LINE_LEN: f32 = 50.0;
-const HALF_MIN_LINE_LEN: f32 = 25.0;
 // length used to simulate infinite lines
 const INFINITE_LEN: f32 = 100_000.0;
 
-pub trait GizmoPrimitive2d: Primitive2d {
-    type Output: GizmoBuilder2d;
+pub trait GizmoPrimitive2d<'a>: Primitive2d + 'a {
+    type Output: GizmoBuilder2d
+    where
+        Self: 'a;
 
-    fn gizmos(&self) -> Self::Output;
+    fn gizmos(&'a self) -> Self::Output;
 }
 pub trait GizmoBuilder2d {
     fn linestrips(&self) -> Vec<Vec<Vec2>>;
@@ -33,7 +34,7 @@ pub struct GizmoPrimitive2dBuilder<'a, 'w, 's, P, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
-    P: GizmoPrimitive2d,
+    P: GizmoPrimitive2d<'a>,
 {
     pub builder: P::Output,
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
@@ -47,9 +48,9 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    pub fn primitive_2d<'a, P: GizmoPrimitive2d>(
+    pub fn primitive_2d<'a, P: GizmoPrimitive2d<'a>>(
         &'a mut self,
-        primitive: &P,
+        primitive: &'a P,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -68,7 +69,7 @@ impl<'a, 'w, 's, Config, Clear, P> Drop for GizmoPrimitive2dBuilder<'a, 'w, 's, 
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
-    P: GizmoPrimitive2d,
+    P: GizmoPrimitive2d<'a>,
 {
     fn drop(&mut self) {
         if !self.gizmos.enabled {
@@ -85,7 +86,7 @@ where
 
 // direction 2d
 
-struct Dir2Builder {
+pub struct Dir2Builder {
     direction: Dir2,
 }
 
@@ -95,7 +96,7 @@ impl GizmoBuilder2d for Dir2Builder {
     }
 }
 
-impl GizmoPrimitive2d for Dir2 {
+impl<'a> GizmoPrimitive2d<'a> for Dir2 {
     type Output = Dir2Builder;
 
     fn gizmos(&self) -> Self::Output {
@@ -111,7 +112,7 @@ enum ArcKind {
     Segment,
 }
 
-struct Arc2dBuilder {
+pub struct Arc2dBuilder {
     arc: Arc2d,
     arc_kind: ArcKind,
     resolution: Option<usize>,
@@ -132,7 +133,7 @@ impl GizmoBuilder2d for Arc2dBuilder {
 
         let mut arc_positions = {
             let mut positions = Vec::with_capacity(resolution + 2);
-            let delta = self.arc.half_angle / (resolution as f32);
+            let delta = 2.0 * self.arc.half_angle / (resolution as f32);
             let start = FRAC_PI_2 - self.arc.half_angle;
             positions.extend((0..resolution + 1).map(|i| {
                 let angle = start + (i as f32 * delta);
@@ -158,7 +159,7 @@ impl GizmoBuilder2d for Arc2dBuilder {
     }
 }
 
-impl GizmoPrimitive2d for Arc2d {
+impl<'a> GizmoPrimitive2d<'a> for Arc2d {
     type Output = Arc2dBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -172,7 +173,7 @@ impl GizmoPrimitive2d for Arc2d {
 
 // circular sector 2d
 
-impl GizmoPrimitive2d for CircularSector {
+impl<'a> GizmoPrimitive2d<'a> for CircularSector {
     type Output = Arc2dBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -186,7 +187,7 @@ impl GizmoPrimitive2d for CircularSector {
 
 // circular segment 2d
 
-impl GizmoPrimitive2d for CircularSegment {
+impl<'a> GizmoPrimitive2d<'a> for CircularSegment {
     type Output = Arc2dBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -200,7 +201,7 @@ impl GizmoPrimitive2d for CircularSegment {
 
 // circle 2d
 
-impl GizmoPrimitive2d for Circle {
+impl<'a> GizmoPrimitive2d<'a> for Circle {
     type Output = EllipseBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -213,7 +214,7 @@ impl GizmoPrimitive2d for Circle {
 
 // ellipse 2d
 
-struct EllipseBuilder {
+pub struct EllipseBuilder {
     half_size: Vec2,
     resolution: usize,
 }
@@ -231,7 +232,7 @@ impl GizmoBuilder2d for EllipseBuilder {
     }
 }
 
-impl GizmoPrimitive2d for Ellipse {
+impl<'a> GizmoPrimitive2d<'a> for Ellipse {
     type Output = EllipseBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -284,7 +285,7 @@ impl GizmoBuilder2d for AnnulusBuilder {
     }
 }
 
-impl GizmoPrimitive2d for Annulus {
+impl<'a> GizmoPrimitive2d<'a> for Annulus {
     type Output = AnnulusBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -299,7 +300,7 @@ impl GizmoPrimitive2d for Annulus {
 
 // rhombus 2d
 
-struct RhombusBuilder {
+pub struct RhombusBuilder {
     half_diagonals: Vec2,
 }
 
@@ -315,7 +316,7 @@ impl GizmoBuilder2d for RhombusBuilder {
     }
 }
 
-impl GizmoPrimitive2d for Rhombus {
+impl<'a> GizmoPrimitive2d<'a> for Rhombus {
     type Output = RhombusBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -327,7 +328,7 @@ impl GizmoPrimitive2d for Rhombus {
 
 // capsule 2d
 
-struct Capsule2dBuilder {
+pub struct Capsule2dBuilder {
     radius: f32,
     half_length: f32,
     resolution: usize,
@@ -335,7 +336,7 @@ struct Capsule2dBuilder {
 
 impl GizmoBuilder2d for Capsule2dBuilder {
     fn linestrips(&self) -> Vec<Vec<Vec2>> {
-        let arc_points = &Arc2d::new(self.radius, FRAC_PI_2)
+        let arc_points = &Arc2d::from_radians(self.radius, PI)
             .gizmos()
             .resolution(self.resolution)
             .linestrips()[0];
@@ -347,7 +348,7 @@ impl GizmoBuilder2d for Capsule2dBuilder {
         );
         positions.extend(
             arc_points
-                .into_iter()
+                .iter()
                 .map(|p| Vec2::new(0.0, -self.half_length) - *p),
         );
         positions.push(positions[0]);
@@ -356,7 +357,7 @@ impl GizmoBuilder2d for Capsule2dBuilder {
     }
 }
 
-impl GizmoPrimitive2d for Capsule2d {
+impl<'a> GizmoPrimitive2d<'a> for Capsule2d {
     type Output = Capsule2dBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -401,7 +402,7 @@ impl GizmoBuilder2d for Line2dBuilder {
     }
 }
 
-impl GizmoPrimitive2d for Line2d {
+impl<'a> GizmoPrimitive2d<'a> for Line2d {
     type Output = Line2dBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -413,7 +414,7 @@ impl GizmoPrimitive2d for Line2d {
 }
 // plane 2d
 
-struct Plane2dBuilder {
+pub struct Plane2dBuilder {
     normal: Dir2,
 }
 
@@ -438,7 +439,7 @@ impl GizmoBuilder2d for Plane2dBuilder {
     }
 }
 
-impl GizmoPrimitive2d for Plane2d {
+impl<'a> GizmoPrimitive2d<'a> for Plane2d {
     type Output = Plane2dBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -479,7 +480,7 @@ impl GizmoBuilder2d for Segment2dBuilder {
     }
 }
 
-impl GizmoPrimitive2d for Segment2d {
+impl<'a> GizmoPrimitive2d<'a> for Segment2d {
     type Output = Segment2dBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -493,7 +494,7 @@ impl GizmoPrimitive2d for Segment2d {
 
 // polyline 2d
 
-struct Polyline2dBuilder<'a> {
+pub struct Polyline2dBuilder<'a> {
     vertices: &'a [Vec2],
 }
 
@@ -506,10 +507,10 @@ impl<'a> GizmoBuilder2d for Polyline2dBuilder<'a> {
     }
 }
 
-impl<const N: usize> GizmoPrimitive2d for Polyline2d<N> {
-    type Output<'a> = Polyline2dBuilder<'a>;
+impl<'a, const N: usize> GizmoPrimitive2d<'a> for Polyline2d<N> {
+    type Output = Polyline2dBuilder<'a>;
 
-    fn gizmos(&self) -> Self::Output {
+    fn gizmos(&'a self) -> Self::Output {
         Self::Output {
             vertices: &self.vertices,
         }
@@ -518,10 +519,10 @@ impl<const N: usize> GizmoPrimitive2d for Polyline2d<N> {
 
 // boxed polyline 2d
 
-impl GizmoPrimitive2d for BoxedPolyline2d {
-    type Output<'a> = Polyline2dBuilder<'a>;
+impl<'a> GizmoPrimitive2d<'a> for BoxedPolyline2d {
+    type Output = Polyline2dBuilder<'a>;
 
-    fn gizmos(&self) -> Self::Output {
+    fn gizmos(&'a self) -> Self::Output {
         Self::Output {
             vertices: &self.vertices,
         }
@@ -530,7 +531,7 @@ impl GizmoPrimitive2d for BoxedPolyline2d {
 
 // triangle 2d
 
-struct Triangle2dBuilder {
+pub struct Triangle2dBuilder {
     vertices: [Vec2; 3],
 }
 
@@ -545,7 +546,7 @@ impl GizmoBuilder2d for Triangle2dBuilder {
     }
 }
 
-impl GizmoPrimitive2d for Triangle2d {
+impl<'a> GizmoPrimitive2d<'a> for Triangle2d {
     type Output = Triangle2dBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -557,7 +558,7 @@ impl GizmoPrimitive2d for Triangle2d {
 
 // rectangle 2d
 
-struct RectangleBuilder {
+pub struct RectangleBuilder {
     half_size: Vec2,
 }
 
@@ -573,7 +574,7 @@ impl GizmoBuilder2d for RectangleBuilder {
     }
 }
 
-impl GizmoPrimitive2d for Rectangle {
+impl<'a> GizmoPrimitive2d<'a> for Rectangle {
     type Output = RectangleBuilder;
 
     fn gizmos(&self) -> Self::Output {
@@ -585,7 +586,7 @@ impl GizmoPrimitive2d for Rectangle {
 
 // polygon 2d
 
-struct PolygonBuilder<'a> {
+pub struct PolygonBuilder<'a> {
     vertices: &'a [Vec2],
 }
 
@@ -604,10 +605,10 @@ impl<'a> GizmoBuilder2d for PolygonBuilder<'a> {
     }
 }
 
-impl<const N: usize> GizmoPrimitive2d for Polygon<N> {
-    type Output<'a> = PolygonBuilder<'a>;
+impl<'a, const N: usize> GizmoPrimitive2d<'a> for Polygon<N> {
+    type Output = PolygonBuilder<'a>;
 
-    fn gizmos(&self) -> Self::Output {
+    fn gizmos(&'a self) -> Self::Output {
         PolygonBuilder {
             vertices: &self.vertices,
         }
@@ -616,10 +617,10 @@ impl<const N: usize> GizmoPrimitive2d for Polygon<N> {
 
 // boxed polygon 2d
 
-impl GizmoPrimitive2d for BoxedPolygon {
-    type Output<'a> = PolygonBuilder<'a>;
+impl<'a> GizmoPrimitive2d<'a> for BoxedPolygon {
+    type Output = PolygonBuilder<'a>;
 
-    fn gizmos(&self) -> Self::Output {
+    fn gizmos(&'a self) -> Self::Output {
         PolygonBuilder {
             vertices: &self.vertices,
         }
@@ -628,7 +629,7 @@ impl GizmoPrimitive2d for BoxedPolygon {
 
 // regular polygon 2d
 
-struct RegularPolygonBuilder {
+pub struct RegularPolygonBuilder {
     circumradius: f32,
     sides: usize,
 }
@@ -643,7 +644,7 @@ impl GizmoBuilder2d for RegularPolygonBuilder {
     }
 }
 
-impl GizmoPrimitive2d for RegularPolygon {
+impl<'a> GizmoPrimitive2d<'a> for RegularPolygon {
     type Output = RegularPolygonBuilder;
 
     fn gizmos(&self) -> Self::Output {
