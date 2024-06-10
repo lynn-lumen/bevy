@@ -20,22 +20,33 @@ const MIN_LINE_LEN: f32 = 50.0;
 // length used to simulate infinite lines
 const INFINITE_LEN: f32 = 100_000.0;
 
+/// A trait for `Primitive2d`s that can be drawn using gizmos.
 pub trait GizmoPrimitive2d<'a>: Primitive2d + 'a {
+    /// The output of [`Self::gizmos`]. This will be a [`GizmoBuilder2d`] used for drawing the gizmos.
     type Output: GizmoBuilder2d
     where
         Self: 'a;
 
+    /// Creates a [`GizmoBuilder2d`] that can be used to draw gizmos representing this primitive.
     fn gizmos(&'a self) -> Self::Output;
 }
+
+/// A trait used to draw gizmos from a configuration.
 pub trait GizmoBuilder2d {
+    /// Get the linestrips representing the gizmos of this shape.
+    ///
+    /// You can assume that the shape is not rotated and positioned at `Vec2::ZERO`.
     fn linestrips(&self) -> Vec<Vec<Vec2>>;
 }
+
+/// A builder for drawing [`Primitive2d`]s in 2D returned by [`Gizmos::primitive_2d`].
 pub struct GizmoPrimitive2dBuilder<'a, 'w, 's, P, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
     P: GizmoPrimitive2d<'a>,
 {
+    /// The underlying builder for the primitive.
     pub builder: P::Output,
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     position: Vec2,
@@ -48,6 +59,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
+    /// Renders a 2D primitive with its associated details.
     pub fn primitive_2d<'a, P: GizmoPrimitive2d<'a>>(
         &'a mut self,
         primitive: &'a P,
@@ -86,6 +98,7 @@ where
 
 // direction 2d
 
+/// Builder for configuring the drawing options of [`Dir2`].
 pub struct Dir2Builder {
     direction: Dir2,
 }
@@ -112,6 +125,7 @@ enum ArcKind {
     Segment,
 }
 
+/// Builder for configuring the drawing options of [`Arc2d`], [`CircularSector`] and [`CircularSegment`].
 pub struct Arc2dBuilder {
     arc: Arc2d,
     arc_kind: ArcKind,
@@ -214,6 +228,7 @@ impl<'a> GizmoPrimitive2d<'a> for Circle {
 
 // ellipse 2d
 
+/// Builder for configuring the drawing options of [`Ellipse`].
 pub struct EllipseBuilder {
     half_size: Vec2,
     resolution: usize,
@@ -300,6 +315,7 @@ impl<'a> GizmoPrimitive2d<'a> for Annulus {
 
 // rhombus 2d
 
+/// Builder for configuring the drawing options of [`Rhombus`].
 pub struct RhombusBuilder {
     half_diagonals: Vec2,
 }
@@ -328,6 +344,7 @@ impl<'a> GizmoPrimitive2d<'a> for Rhombus {
 
 // capsule 2d
 
+/// Builder for configuring the drawing options of [`Capsule2d`].
 pub struct Capsule2dBuilder {
     radius: f32,
     half_length: f32,
@@ -370,7 +387,7 @@ impl<'a> GizmoPrimitive2d<'a> for Capsule2d {
 }
 
 // line 2d
-//
+
 /// Builder for configuring the drawing options of [`Line2d`].
 pub struct Line2dBuilder {
     direction: Dir2, // Direction of the line
@@ -414,6 +431,7 @@ impl<'a> GizmoPrimitive2d<'a> for Line2d {
 }
 // plane 2d
 
+/// Builder for configuring the drawing options of [`Plane2d`].
 pub struct Plane2dBuilder {
     normal: Dir2,
 }
@@ -494,6 +512,7 @@ impl<'a> GizmoPrimitive2d<'a> for Segment2d {
 
 // polyline 2d
 
+/// Builder for configuring the drawing options of [`Polyline2d<N>`] and [`BoxedPolyline2d`].
 pub struct Polyline2dBuilder<'a> {
     vertices: &'a [Vec2],
 }
@@ -531,6 +550,7 @@ impl<'a> GizmoPrimitive2d<'a> for BoxedPolyline2d {
 
 // triangle 2d
 
+/// Builder for configuring the drawing options of [`Triangle2d`].
 pub struct Triangle2dBuilder {
     vertices: [Vec2; 3],
 }
@@ -558,6 +578,7 @@ impl<'a> GizmoPrimitive2d<'a> for Triangle2d {
 
 // rectangle 2d
 
+/// Builder for configuring the drawing options of [`Rectangle`].
 pub struct RectangleBuilder {
     half_size: Vec2,
 }
@@ -586,6 +607,7 @@ impl<'a> GizmoPrimitive2d<'a> for Rectangle {
 
 // polygon 2d
 
+/// Builder for configuring the drawing options of [`Polygon<N>`] and [`BoxedPolygon`].
 pub struct PolygonBuilder<'a> {
     vertices: &'a [Vec2],
 }
@@ -629,6 +651,7 @@ impl<'a> GizmoPrimitive2d<'a> for BoxedPolygon {
 
 // regular polygon 2d
 
+/// Builder for configuring the drawing options of [`RegularPolygon`].
 pub struct RegularPolygonBuilder {
     circumradius: f32,
     sides: usize,
