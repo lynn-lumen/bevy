@@ -12,6 +12,7 @@ use bevy_math::primitives::{
 };
 use bevy_math::{Dir2, Vec2};
 
+use crate::arcs::arc_2d_inner;
 use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
@@ -36,7 +37,7 @@ pub trait GizmoBuilder2d {
     /// Get the linestrips representing the gizmos of this shape.
     ///
     /// You can assume that the shape is not rotated and positioned at `Vec2::ZERO`.
-    fn linestrips(&self) -> Vec<Vec<Vec2>>;
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>>;
 }
 
 /// A builder for drawing [`Primitive2d`]s in 2D returned by [`Gizmos::primitive_2d`].
@@ -104,7 +105,7 @@ pub struct Dir2Builder {
 }
 
 impl GizmoBuilder2d for Dir2Builder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
         arrow_2d(Vec2::ZERO, self.direction * MIN_LINE_LEN)
     }
 }
@@ -140,7 +141,7 @@ impl Arc2dBuilder {
 }
 
 impl GizmoBuilder2d for Arc2dBuilder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
         let resolution = self.resolution.unwrap_or_else(|| {
             ((self.arc.half_angle.abs() / PI) * DEFAULT_CIRCLE_RESOLUTION as f32).ceil() as usize
         });
@@ -169,7 +170,7 @@ impl GizmoBuilder2d for Arc2dBuilder {
             }
         };
 
-        vec![arc_positions]
+        [arc_positions]
     }
 }
 
@@ -242,8 +243,8 @@ impl EllipseBuilder {
 }
 
 impl GizmoBuilder2d for EllipseBuilder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
-        vec![ellipse_inner(self.half_size, self.resolution).collect()]
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
+        [ellipse_inner(self.half_size, self.resolution).collect()]
     }
 }
 
@@ -290,13 +291,13 @@ impl AnnulusBuilder {
 }
 
 impl GizmoBuilder2d for AnnulusBuilder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
         let inner_positions =
             ellipse_inner(Vec2::splat(self.inner_radius), self.inner_resolution).collect();
         let outer_positions =
             ellipse_inner(Vec2::splat(self.outer_radius), self.outer_resolution).collect();
 
-        vec![inner_positions, outer_positions]
+        [inner_positions, outer_positions]
     }
 }
 
@@ -321,8 +322,8 @@ pub struct RhombusBuilder {
 }
 
 impl GizmoBuilder2d for RhombusBuilder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
-        vec![vec![
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
+        [vec![
             Vec2::new(self.half_diagonals.x, 0.0),
             Vec2::new(0.0, self.half_diagonals.y),
             Vec2::new(-self.half_diagonals.x, 0.0),
@@ -352,12 +353,10 @@ pub struct Capsule2dBuilder {
 }
 
 impl GizmoBuilder2d for Capsule2dBuilder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
-        let arc_points = &Arc2d::from_radians(self.radius, PI)
-            .gizmos()
-            .resolution(self.resolution)
-            .linestrips()[0];
-        let mut positions = Vec::with_capacity(arc_points.len() * 2 + 1);
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
+        let arc_points: Vec<Vec2> =
+            arc_2d_inner(FRAC_PI_2, FRAC_PI_2, self.radius, self.resolution).collect();
+        let mut positions = Vec::with_capacity(2 * self.resolution + 3);
         positions.extend(
             arc_points
                 .iter()
@@ -370,7 +369,7 @@ impl GizmoBuilder2d for Capsule2dBuilder {
         );
         positions.push(positions[0]);
 
-        vec![positions]
+        [positions]
     }
 }
 
@@ -404,7 +403,7 @@ impl Line2dBuilder {
 }
 
 impl GizmoBuilder2d for Line2dBuilder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
         let start = self.direction * INFINITE_LEN;
         let end = -start;
 
@@ -437,7 +436,7 @@ pub struct Plane2dBuilder {
 }
 
 impl GizmoBuilder2d for Plane2dBuilder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
         let line_dir = Dir2::new_unchecked(-self.normal.perp());
 
         // The normal of the plane (orthogonal to the plane itself)
@@ -486,7 +485,7 @@ impl Segment2dBuilder {
 }
 
 impl GizmoBuilder2d for Segment2dBuilder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
         let end = self.direction.as_vec2() * self.half_length;
         let start = -end;
         if self.draw_arrow {
@@ -518,10 +517,10 @@ pub struct Polyline2dBuilder<'a> {
 }
 
 impl<'a> GizmoBuilder2d for Polyline2dBuilder<'a> {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
         match self.vertices.len() {
-            0 | 1 => vec![vec![]],
-            _ => vec![self.vertices.into()],
+            0 | 1 => [vec![]],
+            _ => [self.vertices.into()],
         }
     }
 }
@@ -556,8 +555,8 @@ pub struct Triangle2dBuilder {
 }
 
 impl GizmoBuilder2d for Triangle2dBuilder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
-        vec![vec![
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
+        [vec![
             self.vertices[0],
             self.vertices[1],
             self.vertices[2],
@@ -584,8 +583,8 @@ pub struct RectangleBuilder {
 }
 
 impl GizmoBuilder2d for RectangleBuilder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
-        vec![vec![
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
+        [vec![
             self.half_size,
             Vec2::new(self.half_size.x, -self.half_size.y),
             Vec2::new(-self.half_size.x, -self.half_size.y),
@@ -613,11 +612,11 @@ pub struct PolygonBuilder<'a> {
 }
 
 impl<'a> GizmoBuilder2d for PolygonBuilder<'a> {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
         match self.vertices.len() {
-            0 | 1 => vec![vec![]],
-            2 => vec![self.vertices.into()],
-            _ => vec![self
+            0 | 1 => [vec![]],
+            2 => [self.vertices.into()],
+            _ => [self
                 .vertices
                 .iter()
                 .copied()
@@ -658,12 +657,12 @@ pub struct RegularPolygonBuilder {
 }
 
 impl GizmoBuilder2d for RegularPolygonBuilder {
-    fn linestrips(&self) -> Vec<Vec<Vec2>> {
+    fn linestrips(&self) -> impl IntoIterator<Item = Vec<Vec2>> {
         let points = (0..=self.sides)
             .map(|p| single_circle_coordinate(self.circumradius, self.sides, p))
             .collect();
 
-        vec![points]
+        [points]
     }
 }
 

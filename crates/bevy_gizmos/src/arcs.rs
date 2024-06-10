@@ -119,7 +119,7 @@ where
     }
 }
 
-fn arc_2d_inner(
+pub(crate) fn arc_2d_inner(
     direction_angle: f32,
     arc_angle: f32,
     radius: f32,
