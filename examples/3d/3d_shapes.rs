@@ -22,6 +22,22 @@ fn main() {
         .add_systems(Update, (input, draw_gizmos))
         .run();
 }
+impl Projectable for ShapeProjection<Plane3d> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let rotation = self.rotation * Quat::from_rotation_arc(Vec3::Y, *self.primitive.normal);
+        let positions = [
+            rotation * Vec3::new(self.primitive.half_size.x, 0., -self.primitive.half_size.y),
+            rotation * Vec3::new(-self.primitive.half_size.x, 0., -self.primitive.half_size.y),
+            rotation * Vec3::new(-self.primitive.half_size.x, 0., self.primitive.half_size.y),
+            rotation * Vec3::new(self.primitive.half_size.x, 0., self.primitive.half_size.y),
+        ]
+        .map(|p| p.xy());
+
+        vec![PerimeterSegment::LineStrip {
+            points: positions.into_iter().cycle().take(5).collect(),
+        }]
+    }
+}
 impl Projectable for ShapeProjection<Triangle3d> {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         let points = self.primitive.vertices.map(|p| (self.rotation * p).xy());
@@ -363,6 +379,7 @@ struct Shape(usize);
 struct Axes(bool);
 
 const X_EXTENT: f32 = 12.0;
+const Y_EXTENT: f32 = 3.0;
 
 fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos, axes: Res<Axes>) {
     let mut first = true;
@@ -391,7 +408,7 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos, axes: Re
             gizmos.axes(*t, 1.);
         }
 
-        let num_shapes = 9;
+        let num_shapes = 10;
         let color = Color::hsl(360. * *i as f32 / num_shapes as f32, 0.95, 0.7);
         match *i {
             0 => gizmos.projection(
@@ -439,6 +456,11 @@ fn draw_gizmos(shapes: Query<(&Transform, &Shape)>, mut gizmos: Gizmos, axes: Re
                 t.translation.xy(),
                 color,
             ),
+            9 => gizmos.projection(
+                ShapeProjection::new(Plane3d::default(), t.rotation),
+                t.translation.xy(),
+                color,
+            ),
             _ => todo!(),
         }
     }
@@ -459,10 +481,13 @@ fn setup(
         meshes.add(Sphere::default().mesh().uv(32, 18)),
         meshes.add(Cone::default().mesh()),
         meshes.add(Tetrahedron::default().mesh()),
+    ];
+    let shapes2 = [
         meshes.add(Cuboid::default().mesh()),
         meshes.add(Torus::default().mesh()),
         meshes.add(CONICAL_FRUSTUM.mesh()),
         meshes.add(Triangle3d::default()),
+        meshes.add(Plane3d::default().mesh()),
     ];
 
     let num_shapes = shapes.len();
@@ -473,7 +498,11 @@ fn setup(
         } else {
             0.
         };
-        let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
+        let color = Color::hsl(
+            360. * i as f32 / (num_shapes + shapes2.len()) as f32,
+            0.95,
+            0.7,
+        );
         let mat = materials.add(StandardMaterial {
             base_color: color,
             ..default()
@@ -482,11 +511,41 @@ fn setup(
             PbrBundle {
                 mesh: shape,
                 material: mat,
-                transform: Transform::from_xyz(x, 0.0, 0.0)
+                transform: Transform::from_xyz(x, Y_EXTENT / 2., 0.0)
                     .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 ..default()
             },
             Shape(i),
+        ));
+    }
+
+    let offset = num_shapes;
+    let num_shapes = shapes2.len();
+
+    for (i, shape) in shapes2.into_iter().enumerate() {
+        let x = if num_shapes > 1 {
+            -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT
+        } else {
+            0.
+        };
+        let color = Color::hsl(
+            360. * (i + offset) as f32 / (num_shapes + offset) as f32,
+            0.95,
+            0.7,
+        );
+        let mat = materials.add(StandardMaterial {
+            base_color: color,
+            ..default()
+        });
+        commands.spawn((
+            PbrBundle {
+                mesh: shape,
+                material: mat,
+                transform: Transform::from_xyz(x, -Y_EXTENT / 2., 0.0)
+                    .with_rotation(Quat::from_rotation_x(-PI / 4.)),
+                ..default()
+            },
+            Shape(i + offset),
         ));
     }
 
