@@ -285,6 +285,12 @@ impl Arc2d {
     }
 }
 
+impl ScaleUniform for Arc2d {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self { radius: scale * self.radius, half_angle: self.half_angle }
+    }
+}
+
 /// A primitive representing a circular sector: a pie slice of a circle.
 ///
 /// The segment is positioned so that it always includes [`Vec2::Y`] and is vertically symmetrical.
@@ -427,6 +433,12 @@ impl CircularSector {
     }
 }
 
+impl ScaleUniform for CircularSector {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self { arc: self.arc.scale_uniform(scale) }
+    }
+}
+
 /// A primitive representing a circular segment:
 /// the area enclosed by the arc of a circle and its chord (the line between its endpoints).
 ///
@@ -564,6 +576,12 @@ impl CircularSegment {
     #[doc(alias = "height")]
     pub fn sagitta(&self) -> f32 {
         self.arc.sagitta()
+    }
+}
+
+impl ScaleUniform for CircularSegment {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self { arc: self.arc.scale_uniform(scale) }
     }
 }
 
