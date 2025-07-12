@@ -1604,6 +1604,20 @@ impl<const N: usize> Polyline2d<N> {
     }
 }
 
+impl<const N: usize> ScaleUniform for Polyline2d<N> {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(self.vertices.map(|p| scale * p))
+    }
+}
+
+impl<const N: usize> ScaleNonUniform2d for Polyline2d<N> {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec2) -> Self::Output {
+        Self::new(self.vertices.map(|p| scale * p))
+    }
+}
+
 /// A series of connected line segments in 2D space, allocated on the heap
 /// in a `Box<[Vec2]>`.
 ///
@@ -1634,6 +1648,22 @@ impl BoxedPolyline2d {
     /// Create a new `BoxedPolyline2d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl ScaleUniform for BoxedPolyline2d {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(self.vertices.iter().copied().map(|p| scale * p))
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl ScaleNonUniform2d for BoxedPolyline2d {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec2) -> Self::Output {
+        Self::new(self.vertices.iter().copied().map(|p| scale * p))
     }
 }
 
@@ -1976,6 +2006,20 @@ impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
     }
 }
 
+impl<const N: usize> ScaleUniform for Polygon<N> {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(self.vertices.map(|p| scale * p))
+    }
+}
+
+impl<const N: usize> ScaleNonUniform2d for Polygon<N> {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec2) -> Self::Output {
+        Self::new(self.vertices.map(|p| scale * p))
+    }
+}
+
 /// A convex polygon with `N` vertices.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -2056,6 +2100,20 @@ impl<const N: usize> TryFrom<Polygon<N>> for ConvexPolygon<N> {
     }
 }
 
+impl<const N: usize> ScaleUniform for ConvexPolygon<N> {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new_unchecked(self.vertices.map(|p| scale * p))
+    }
+}
+
+impl<const N: usize> ScaleNonUniform2d for ConvexPolygon<N> {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec2) -> Self::Output {
+        Self::new_unchecked(self.vertices.map(|p| scale * p))
+    }
+}
+
 /// A polygon with a variable number of vertices, allocated on the heap
 /// in a `Box<[Vec2]>`.
 ///
@@ -2094,6 +2152,22 @@ impl BoxedPolygon {
     /// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
     pub fn is_simple(&self) -> bool {
         is_polygon_simple(&self.vertices)
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl ScaleUniform for BoxedPolygon {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(self.vertices.iter().copied().map(|p| scale * p))
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl ScaleNonUniform2d for BoxedPolygon {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec2) -> Self::Output {
+        Self::new(self.vertices.iter().copied().map(|p| scale * p))
     }
 }
 
