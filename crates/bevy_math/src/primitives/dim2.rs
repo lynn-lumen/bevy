@@ -1217,6 +1217,19 @@ impl Measured2d for Rhombus {
     }
 }
 
+impl ScaleUniform for Rhombus {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self { half_diagonals: scale * self.half_diagonals }
+    }
+}
+
+impl ScaleNonUniform2d for Rhombus {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec2) -> Self::Output {
+        Self { half_diagonals: scale * self.half_diagonals }
+    }
+}
 /// An unbounded plane in 2D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug, PartialEq)]
