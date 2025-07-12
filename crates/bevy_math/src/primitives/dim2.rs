@@ -961,6 +961,20 @@ impl Measured2d for Ellipse {
     }
 }
 
+impl ScaleUniform for Ellipse {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self { half_size: scale * self.half_size }
+    }
+}
+
+impl ScaleNonUniform2d for Ellipse {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec2) -> Self::Output {
+        Self { half_size: scale * self.half_size }
+    }
+}
+
 /// A primitive shape formed by the region between two circles, also known as a ring.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1056,6 +1070,12 @@ impl Measured2d for Annulus {
     #[doc(alias = "circumference")]
     fn perimeter(&self) -> f32 {
         2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
+    }
+}
+
+impl ScaleUniform for Annulus {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(scale * self.inner_circle.radius, scale * self.outer_circle.radius)
     }
 }
 
