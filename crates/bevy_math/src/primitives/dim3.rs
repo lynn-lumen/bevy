@@ -167,6 +167,12 @@ impl Plane3d {
     }
 }
 
+impl ScaleUniform for Plane3d {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(self.normal.as_vec3(), scale * self.half_size)
+    }
+}
+
 /// An unbounded plane in 3D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -568,6 +574,19 @@ impl From<(Vec3, Vec3)> for Segment3d {
     #[inline(always)]
     fn from((point1, point2): (Vec3, Vec3)) -> Self {
         Self::new(point1, point2)
+    }
+}
+
+impl ScaleUniform for Segment3d {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(scale * self.point1(), scale * self.point2())
+    }
+}
+impl ScaleNonUniform3d for Segment3d {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec3) -> Self::Output {
+        Self::new(scale * self.point1(), scale * self.point2())
     }
 }
 
