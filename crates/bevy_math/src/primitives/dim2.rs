@@ -1839,6 +1839,24 @@ impl Measured2d for Triangle2d {
     }
 }
 
+impl ScaleUniform for Triangle2d {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self {
+            vertices: self.vertices.map(|p| scale * p) 
+        }
+    }
+}
+
+impl ScaleNonUniform2d for Triangle2d {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec2) -> Self::Output {
+        Self {
+            vertices: self.vertices.map(|p| scale * p) 
+        }
+    }
+}
+
 /// A rectangle primitive, which is like a square, except that the width and height can be different
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -2316,6 +2334,12 @@ impl Measured2d for RegularPolygon {
     }
 }
 
+impl ScaleUniform for RegularPolygon {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(scale * self.circumradius(), self.sides)
+    }
+}
+
 /// A 2D capsule primitive, also known as a stadium or pill shape.
 ///
 /// A two-dimensional capsule is defined as a neighborhood of points at a distance (radius) from a line
@@ -2380,6 +2404,15 @@ impl Measured2d for Capsule2d {
     fn perimeter(&self) -> f32 {
         // 2pi*r + 2l
         2.0 * PI * self.radius + 4.0 * self.half_length
+    }
+}
+
+impl ScaleUniform for Capsule2d {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self {
+            half_length: scale * self.half_length,
+            radius: scale * self.radius
+        }
     }
 }
 
