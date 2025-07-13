@@ -3,7 +3,7 @@ use core::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{
     ops::{self, FloatPow},
-    prelude::{Ellipse, ScaleNonUniform2d, ScaleNonUniform3d, ScaleUniform},
+    prelude::{ScaleNonUniform2d, ScaleNonUniform3d, ScaleUniform},
     Dir3, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3,
 };
 
@@ -1623,17 +1623,6 @@ impl<T: Primitive2d + ScaleUniform> ScaleUniform for Extrusion<T> {
         Self {
             base_shape: self.base_shape.scale_uniform(scale),
             half_depth: scale * self.half_depth,
-        }
-    }
-}
-
-impl<T: Primitive2d + ScaleNonUniform2d> ScaleNonUniform3d for Extrusion<T> {
-    type Output = Extrusion<T::Output>;
-
-    fn scale(&self, scale: Vec3) -> Self::Output {
-        Extrusion {
-            base_shape: self.base_shape.scale(scale.xy()),
-            half_depth: scale.z * self.half_depth,
         }
     }
 }
