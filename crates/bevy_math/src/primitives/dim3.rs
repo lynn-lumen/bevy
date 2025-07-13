@@ -3,7 +3,7 @@ use core::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{
     ops::{self, FloatPow},
-    prelude::{ScaleNonUniform3d, ScaleUniform},
+    prelude::{Ellipse, ScaleNonUniform2d, ScaleNonUniform3d, ScaleUniform},
     Dir3, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3,
 };
 
@@ -11,7 +11,7 @@ use crate::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use glam::Quat;
+use glam::{Quat, Vec3Swizzles};
 
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, vec::Vec};
@@ -630,6 +630,20 @@ impl<const N: usize> Polyline3d<N> {
     }
 }
 
+impl<const N: usize> ScaleUniform for Polyline3d<N> {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(self.vertices.map(|p| scale * p))
+    }
+}
+
+impl<const N: usize> ScaleNonUniform3d for Polyline3d<N> {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec3) -> Self {
+        Self::new(self.vertices.map(|p| scale * p))
+    }
+}
+
 /// A series of connected line segments in 3D space, allocated on the heap
 /// in a `Box<[Vec3]>`.
 ///
@@ -660,6 +674,22 @@ impl BoxedPolyline3d {
     /// Create a new `BoxedPolyline3d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
         Self::from_iter(vertices)
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl ScaleUniform for BoxedPolyline3d {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(self.vertices.iter().copied().map(|p| scale * p))
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl ScaleNonUniform3d for BoxedPolyline3d {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec3) -> Self {
+        Self::new(self.vertices.iter().copied().map(|p| scale * p))
     }
 }
 
@@ -853,6 +883,15 @@ impl Measured3d for Cylinder {
     }
 }
 
+impl ScaleUniform for Cylinder {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self {
+            radius: scale * self.radius,
+            half_height: scale * self.half_height,
+        }
+    }
+}
+
 /// A 3D capsule primitive centered on the origin
 /// A three-dimensional capsule is defined as a surface at a distance (radius) from a line
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -920,6 +959,15 @@ impl Measured3d for Capsule3d {
         // Modified version of pi * r^2 * (4/3 * r + a)
         let diameter = self.radius * 2.0;
         PI * self.radius * diameter * (diameter / 3.0 + self.half_length)
+    }
+}
+
+impl ScaleUniform for Capsule3d {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self {
+            radius: scale * self.radius,
+            half_length: scale * self.half_length,
+        }
     }
 }
 
@@ -1006,6 +1054,15 @@ impl Measured3d for Cone {
     }
 }
 
+impl ScaleUniform for Cone {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self {
+            radius: scale * self.radius,
+            height: scale * self.height,
+        }
+    }
+}
+
 /// A conical frustum primitive.
 /// A conical frustum can be created
 /// by slicing off a section of a cone.
@@ -1038,6 +1095,16 @@ impl Default for ConicalFrustum {
             radius_top: 0.25,
             radius_bottom: 0.5,
             height: 0.5,
+        }
+    }
+}
+
+impl ScaleUniform for ConicalFrustum {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self {
+            radius_top: scale * self.radius_top,
+            radius_bottom: scale * self.radius_bottom,
+            height: scale * self.height,
         }
     }
 }
@@ -1366,6 +1433,24 @@ impl Measured2d for Triangle3d {
     }
 }
 
+impl ScaleUniform for Triangle3d {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self {
+            vertices: self.vertices.map(|p| scale * p),
+        }
+    }
+}
+
+impl ScaleNonUniform3d for Triangle3d {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec3) -> Self {
+        Self {
+            vertices: self.vertices.map(|p| scale * p),
+        }
+    }
+}
+
 /// A tetrahedron primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1474,6 +1559,24 @@ impl Measured3d for Tetrahedron {
     }
 }
 
+impl ScaleUniform for Tetrahedron {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self {
+            vertices: self.vertices.map(|p| scale * p),
+        }
+    }
+}
+
+impl ScaleNonUniform3d for Tetrahedron {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec3) -> Self {
+        Self {
+            vertices: self.vertices.map(|p| scale * p),
+        }
+    }
+}
+
 /// A 3D shape representing an extruded 2D `base_shape`.
 ///
 /// Extruding a shape effectively "thickens" a 2D shapes,
@@ -1512,6 +1615,26 @@ impl<T: Primitive2d + Measured2d> Measured3d for Extrusion<T> {
     /// Get the volume of the extrusion
     fn volume(&self) -> f32 {
         2. * self.base_shape.area() * self.half_depth
+    }
+}
+
+impl<T: Primitive2d + ScaleUniform> ScaleUniform for Extrusion<T> {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self {
+            base_shape: self.base_shape.scale_uniform(scale),
+            half_depth: scale * self.half_depth,
+        }
+    }
+}
+
+impl<T: Primitive2d + ScaleNonUniform2d> ScaleNonUniform3d for Extrusion<T> {
+    type Output = Extrusion<T::Output>;
+
+    fn scale(&self, scale: Vec3) -> Self::Output {
+        Extrusion {
+            base_shape: self.base_shape.scale(scale.xy()),
+            half_depth: scale.z * self.half_depth,
+        }
     }
 }
 

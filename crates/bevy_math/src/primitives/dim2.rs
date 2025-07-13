@@ -287,7 +287,10 @@ impl Arc2d {
 
 impl ScaleUniform for Arc2d {
     fn scale_uniform(&self, scale: f32) -> Self {
-        Self { radius: scale * self.radius, half_angle: self.half_angle }
+        Self {
+            radius: scale * self.radius,
+            half_angle: self.half_angle,
+        }
     }
 }
 
@@ -435,7 +438,9 @@ impl CircularSector {
 
 impl ScaleUniform for CircularSector {
     fn scale_uniform(&self, scale: f32) -> Self {
-        Self { arc: self.arc.scale_uniform(scale) }
+        Self {
+            arc: self.arc.scale_uniform(scale),
+        }
     }
 }
 
@@ -581,7 +586,9 @@ impl CircularSegment {
 
 impl ScaleUniform for CircularSegment {
     fn scale_uniform(&self, scale: f32) -> Self {
-        Self { arc: self.arc.scale_uniform(scale) }
+        Self {
+            arc: self.arc.scale_uniform(scale),
+        }
     }
 }
 
@@ -963,7 +970,9 @@ impl Measured2d for Ellipse {
 
 impl ScaleUniform for Ellipse {
     fn scale_uniform(&self, scale: f32) -> Self {
-        Self { half_size: scale * self.half_size }
+        Self {
+            half_size: scale * self.half_size,
+        }
     }
 }
 
@@ -971,7 +980,9 @@ impl ScaleNonUniform2d for Ellipse {
     type Output = Self;
 
     fn scale(&self, scale: Vec2) -> Self::Output {
-        Self { half_size: scale * self.half_size }
+        Self {
+            half_size: scale * self.half_size,
+        }
     }
 }
 
@@ -1075,7 +1086,10 @@ impl Measured2d for Annulus {
 
 impl ScaleUniform for Annulus {
     fn scale_uniform(&self, scale: f32) -> Self {
-        Self::new(scale * self.inner_circle.radius, scale * self.outer_circle.radius)
+        Self::new(
+            scale * self.inner_circle.radius,
+            scale * self.outer_circle.radius,
+        )
     }
 }
 
@@ -1219,7 +1233,9 @@ impl Measured2d for Rhombus {
 
 impl ScaleUniform for Rhombus {
     fn scale_uniform(&self, scale: f32) -> Self {
-        Self { half_diagonals: scale * self.half_diagonals }
+        Self {
+            half_diagonals: scale * self.half_diagonals,
+        }
     }
 }
 
@@ -1227,7 +1243,9 @@ impl ScaleNonUniform2d for Rhombus {
     type Output = Self;
 
     fn scale(&self, scale: Vec2) -> Self::Output {
-        Self { half_diagonals: scale * self.half_diagonals }
+        Self {
+            half_diagonals: scale * self.half_diagonals,
+        }
     }
 }
 /// An unbounded plane in 2D space. It forms a separating surface through the origin,
@@ -1842,7 +1860,7 @@ impl Measured2d for Triangle2d {
 impl ScaleUniform for Triangle2d {
     fn scale_uniform(&self, scale: f32) -> Self {
         Self {
-            vertices: self.vertices.map(|p| scale * p) 
+            vertices: self.vertices.map(|p| scale * p),
         }
     }
 }
@@ -1852,7 +1870,7 @@ impl ScaleNonUniform2d for Triangle2d {
 
     fn scale(&self, scale: Vec2) -> Self::Output {
         Self {
-            vertices: self.vertices.map(|p| scale * p) 
+            vertices: self.vertices.map(|p| scale * p),
         }
     }
 }
@@ -2411,7 +2429,7 @@ impl ScaleUniform for Capsule2d {
     fn scale_uniform(&self, scale: f32) -> Self {
         Self {
             half_length: scale * self.half_length,
-            radius: scale * self.radius
+            radius: scale * self.radius,
         }
     }
 }
